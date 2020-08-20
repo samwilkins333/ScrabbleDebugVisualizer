@@ -6,16 +6,20 @@ import com.sun.jdi.event.Event;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.ExceptionRequest;
+import com.sun.jdi.request.StepRequest;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class CandidateGenerationVisualizer<T> {
   private static JTextPane VARIABLES_DISPLAY;
 
   private Class<T> debugClass;
   private int[] breakPointLines;
+  private final List<Integer> mainLineNumbers = new ArrayList<>();
 
   public void setDebugClass(Class<T> debugClass) {
     this.debugClass = debugClass;
@@ -33,17 +37,17 @@ public class CandidateGenerationVisualizer<T> {
     return launchingConnector.launch(arguments);
   }
 
-  public static void main(String[] args) {
-    Object syncObject = new Object();
+  private static final Object LOCK = new Object();
 
+  public static void main(String[] args) {
     JFrame frame = new JFrame("Candidate Generation Visualizer");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
     frame.setSize(dimension.width,dimension.height);
     JButton button = new JButton("Continue");
     button.addActionListener(e -> {
-      synchronized (syncObject) {
-        syncObject.notifyAll();
+      synchronized (LOCK) {
+        LOCK.notifyAll();
       }
     });
     button.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -56,14 +60,14 @@ public class CandidateGenerationVisualizer<T> {
     frame.getContentPane().add(panel);
     frame.setVisible(true);
 
-    new Thread(getDebuggerAsChild(syncObject)).start();
+    new Thread(getDebuggerAsChild()).start();
   }
 
-  public static Runnable getDebuggerAsChild(Object syncObject) {
+  public static Runnable getDebuggerAsChild() {
     return () -> {
       CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance = new CandidateGenerationVisualizer<>();
       debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-      int[] breakPointLines = {12, 20};
+      int[] breakPointLines = {12, 16, 21};
       debuggerInstance.setBreakPointLines(breakPointLines);
       VirtualMachine vm;
       try {
@@ -79,30 +83,16 @@ public class CandidateGenerationVisualizer<T> {
               VARIABLES_DISPLAY.setText("EXCEPTION\n" + unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()) + "\n\n");
             }
             if (event instanceof BreakpointEvent) {
-              event.request().disable();
-              StringBuilder displayText = new StringBuilder("BREAKPOINT\n");
-              StackFrame frame = ((BreakpointEvent) event).thread().frame(0);
-              displayText.append(frame.location().toString()).append("\n\n");
-              Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables(frame, ((BreakpointEvent) event).thread());
-              if (unpackedVariables != null) {
-                for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
-                  String resolved;
-                  if (variable.getValue() instanceof Object[]) {
-                    resolved = Arrays.deepToString((Object[]) variable.getValue());
-                  } else {
-                    resolved = variable.getValue().toString();
-                  }
-                  displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
+              displayUnpackedVariables("BREAKPOINT", debuggerInstance, ((BreakpointEvent) event).thread());
+              debuggerInstance.enableStepRequest(vm, (BreakpointEvent)event);
+            }
+            if (event instanceof StepEvent) {
+              if (((StepEvent) event).location().toString().contains(debuggerInstance.debugClass.getName())) {
+                stepCounter++;
+                displayUnpackedVariables("STEP", debuggerInstance, ((StepEvent) event).thread());
+                if (stepCounter == 1) {
+                  activeStepRequest.disable();
                 }
-                VARIABLES_DISPLAY.setText(displayText.toString());
-              }
-              synchronized (syncObject) {
-                try {
-                  syncObject.wait();
-                } catch(InterruptedException e) {
-                  System.exit(0);
-                }
-                VARIABLES_DISPLAY.setText("Running...");
               }
             }
             vm.resume();
@@ -118,6 +108,38 @@ public class CandidateGenerationVisualizer<T> {
     };
   }
 
+  private static void displayUnpackedVariables(
+          String prompt,
+          CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance,
+          ThreadReference thread
+  ) throws AbsentInformationException, IncompatibleThreadStateException {
+    System.out.println(prompt);
+    StringBuilder displayText = new StringBuilder(prompt).append("\n");
+    StackFrame frame = thread.frame(0);
+    displayText.append(frame.location().toString()).append("\n\n");
+    Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables(frame, thread);
+    if (unpackedVariables != null) {
+      for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
+        String resolved;
+        if (variable.getValue() instanceof Object[]) {
+          resolved = Arrays.deepToString((Object[]) variable.getValue());
+        } else {
+          resolved = variable.getValue().toString();
+        }
+        displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
+      }
+      VARIABLES_DISPLAY.setText(displayText.toString());
+    }
+    synchronized (LOCK) {
+      try {
+        LOCK.wait();
+      } catch(InterruptedException e) {
+        System.exit(0);
+      }
+      VARIABLES_DISPLAY.setText("Running...");
+    }
+  }
+
   public void enableClassPrepareRequest(VirtualMachine vm) {
     ExceptionRequest exceptionRequest = vm.eventRequestManager().createExceptionRequest(null, true, true);
     exceptionRequest.enable();
@@ -128,10 +150,26 @@ public class CandidateGenerationVisualizer<T> {
 
   public void setBreakPoints(VirtualMachine vm, ClassPrepareEvent event) throws AbsentInformationException {
     ClassType classType = (ClassType) event.referenceType();
+    this.mainLineNumbers.addAll(getMainLineNumbersFor(classType));
     for (int lineNumber : breakPointLines) {
       Location location = classType.locationsOfLine(lineNumber).get(0);
       BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
       breakpointRequest.enable();
+    }
+  }
+
+  private static List<Integer> getMainLineNumbersFor(ClassType classType) throws AbsentInformationException {
+    List<Location> locations = classType.methodsByName("main").get(0).allLineLocations();
+    return locations.stream().map(Location::lineNumber).collect(Collectors.toList());
+  }
+
+  private static StepRequest activeStepRequest = null;
+  private static int stepCounter = 0;
+
+  public void enableStepRequest(VirtualMachine vm, BreakpointEvent event) {
+    if (event.location().toString().contains(debugClass.getName() + ":" + breakPointLines[breakPointLines.length - 2])) {
+      activeStepRequest = vm.eventRequestManager().createStepRequest(event.thread(), StepRequest.STEP_LINE, StepRequest.STEP_OVER);
+      activeStepRequest.enable();
     }
   }
 

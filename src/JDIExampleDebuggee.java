@@ -1,6 +1,8 @@
 import com.swilkins.ScrabbleBase.Board.Configuration;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 
+import java.util.Arrays;
+
 public class JDIExampleDebuggee {
 
   public static void main(String[] args) {
@@ -17,9 +19,7 @@ public class JDIExampleDebuggee {
     gleb--;
     System.out.println(text);
     BoardSquare[][] board = Configuration.getStandardBoard();
-    for (String line  : Configuration.serializeBoard(board)) {
-      System.out.println(line);
-    }
+    System.out.println(Configuration.serializeBoard(board));
   }
 
 }
