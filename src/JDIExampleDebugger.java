@@ -44,11 +44,19 @@ public class JDIExampleDebugger<T> {
             debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
           }
           if (event instanceof BreakpointEvent) {
-            System.out.println("BREAKPOINT");
             event.request().disable();
             Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables((BreakpointEvent) event);
             if (unpackedVariables != null) {
-              System.out.println(unpackedVariables);
+              for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
+                System.out.printf("%s = ", variable.getKey());
+                String resolved;
+                if (variable.getValue() instanceof Object[]) {
+                  resolved = Arrays.deepToString((Object[]) variable.getValue());
+                } else {
+                  resolved = variable.getValue().toString();
+                }
+                System.out.println(resolved);
+              }
             }
             try {
               System.out.println("Please enter anything to continue execution...");
@@ -100,10 +108,10 @@ public class JDIExampleDebugger<T> {
 
   private Object unpackReference(ThreadReference thread, Value value) {
       if (value instanceof ArrayReference) {
-        List<Object> collector = new ArrayList<>();
         ArrayReference arrayReference = (ArrayReference)value;
+        Object[] collector = new Object[arrayReference.length()];
         for (int i = 0; i < arrayReference.length(); i++) {
-          collector.add(unpackReference(thread, arrayReference.getValue(i)));
+          collector[i] = (unpackReference(thread, arrayReference.getValue(i)));
         }
         return collector;
       } else if (value instanceof StringReference) {
