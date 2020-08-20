@@ -5,6 +5,7 @@ import com.sun.jdi.event.*;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 
+import javax.swing.*;
 import java.util.*;
 
 public class JDIExampleDebugger<T> {
@@ -28,52 +29,71 @@ public class JDIExampleDebugger<T> {
   }
 
   public static void main(String[] args) {
-    JDIExampleDebugger<JDIExampleDebuggee> debuggerInstance = new JDIExampleDebugger<>();
-    debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-    int[] breakPointLines = {9, 15};
-    debuggerInstance.setBreakPointLines(breakPointLines);
-    Scanner scanner = new Scanner(System.in);
-    VirtualMachine vm;
-    try {
-      vm = debuggerInstance.connectAndLaunchVM();
-      debuggerInstance.enableClassPrepareRequest(vm);
-      EventSet eventSet;
-      while ((eventSet = vm.eventQueue().remove()) != null) {
-        for (Event event : eventSet) {
-          if (event instanceof ClassPrepareEvent) {
-            debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
-          }
-          if (event instanceof BreakpointEvent) {
-            event.request().disable();
-            Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables((BreakpointEvent) event);
-            if (unpackedVariables != null) {
-              for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
-                System.out.printf("%s = ", variable.getKey());
-                String resolved;
-                if (variable.getValue() instanceof Object[]) {
-                  resolved = Arrays.deepToString((Object[]) variable.getValue());
-                } else {
-                  resolved = variable.getValue().toString();
+    Object syncObject = new Object();
+
+    JFrame frame = new JFrame("My First GUI");
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    frame.setSize(300,300);
+    JButton button = new JButton("Continue");
+    button.addActionListener(e -> {
+      synchronized (syncObject) {
+        syncObject.notifyAll();
+      }
+    });
+    frame.getContentPane().add(button);
+    frame.setVisible(true);
+
+    new Thread(getDebuggerAsChild(syncObject)).start();
+  }
+
+  public static Runnable getDebuggerAsChild(Object syncObject) {
+    return () -> {
+      JDIExampleDebugger<JDIExampleDebuggee> debuggerInstance = new JDIExampleDebugger<>();
+      debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
+      int[] breakPointLines = {9, 15};
+      debuggerInstance.setBreakPointLines(breakPointLines);
+      VirtualMachine vm;
+      try {
+        vm = debuggerInstance.connectAndLaunchVM();
+        debuggerInstance.enableClassPrepareRequest(vm);
+        EventSet eventSet;
+        while ((eventSet = vm.eventQueue().remove()) != null) {
+          for (Event event : eventSet) {
+            if (event instanceof ClassPrepareEvent) {
+              debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
+            }
+            if (event instanceof BreakpointEvent) {
+              event.request().disable();
+              Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables((BreakpointEvent) event);
+              if (unpackedVariables != null) {
+                for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
+                  System.out.printf("%s = ", variable.getKey());
+                  String resolved;
+                  if (variable.getValue() instanceof Object[]) {
+                    resolved = Arrays.deepToString((Object[]) variable.getValue());
+                  } else {
+                    resolved = variable.getValue().toString();
+                  }
+                  System.out.println(resolved);
                 }
-                System.out.println(resolved);
+              }
+              synchronized (syncObject) {
+                try {
+                  syncObject.wait();
+                } catch(InterruptedException e) {
+                  System.exit(0);
+                }
               }
             }
-            try {
-              System.out.println("Please enter anything to continue execution...");
-              scanner.nextLine();
-            } catch(IllegalStateException | NoSuchElementException e) {
-              System.out.println("System.in was closed; exiting");
-              System.exit(0);
-            }
+            vm.resume();
           }
-          vm.resume();
         }
+      } catch (VMDisconnectedException e) {
+        System.out.println("Virtual Machine is disconnected");
+      } catch (Exception e) {
+        e.printStackTrace();
       }
-    } catch (VMDisconnectedException e) {
-      System.out.println("Virtual Machine is disconnected");
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    };
   }
 
   public void enableClassPrepareRequest(VirtualMachine vm) {
