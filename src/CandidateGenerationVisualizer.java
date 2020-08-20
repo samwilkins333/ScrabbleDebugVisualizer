@@ -61,7 +61,7 @@ public class CandidateGenerationVisualizer<T> {
     return () -> {
       CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance = new CandidateGenerationVisualizer<>();
       debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-      int[] breakPointLines = {9, 15};
+      int[] breakPointLines = {12, 19};
       debuggerInstance.setBreakPointLines(breakPointLines);
       VirtualMachine vm;
       try {
@@ -70,6 +70,7 @@ public class CandidateGenerationVisualizer<T> {
         EventSet eventSet;
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
+            System.out.println(event.getClass().getName());
             if (event instanceof ClassPrepareEvent) {
               debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
             }

@@ -1,3 +1,6 @@
+import com.swilkins.ScrabbleBase.Board.Configuration;
+import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
+
 public class JDIExampleDebuggee {
 
   public static void main(String[] args) {
@@ -13,6 +16,8 @@ public class JDIExampleDebuggee {
     test[0][0] = "one fish two fish";
     gleb--;
     System.out.println(text);
+    BoardSquare[][] board = Configuration.getStandardBoard();
+    System.out.println(Configuration.serializeBoard(board));
   }
 
 }
