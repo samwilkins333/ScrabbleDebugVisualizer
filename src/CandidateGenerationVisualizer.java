@@ -5,6 +5,7 @@ import com.sun.jdi.event.*;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
+import com.sun.jdi.request.ExceptionRequest;
 
 import javax.swing.*;
 import java.awt.*;
@@ -28,6 +29,7 @@ public class CandidateGenerationVisualizer<T> {
     LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
     Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
     arguments.get("main").setValue(debugClass.getName());
+    arguments.get("options").setValue("-classpath \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
     return launchingConnector.launch(arguments);
   }
 
@@ -61,7 +63,7 @@ public class CandidateGenerationVisualizer<T> {
     return () -> {
       CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance = new CandidateGenerationVisualizer<>();
       debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-      int[] breakPointLines = {12, 19};
+      int[] breakPointLines = {12, 20};
       debuggerInstance.setBreakPointLines(breakPointLines);
       VirtualMachine vm;
       try {
@@ -70,9 +72,12 @@ public class CandidateGenerationVisualizer<T> {
         EventSet eventSet;
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
-            System.out.println(event.getClass().getName());
             if (event instanceof ClassPrepareEvent) {
               debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
+            }
+            if (event instanceof ExceptionEvent) {
+              System.out.println("EXCEPTION!");
+              System.out.println(unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()));
             }
             if (event instanceof BreakpointEvent) {
               event.request().disable();
@@ -113,6 +118,8 @@ public class CandidateGenerationVisualizer<T> {
   }
 
   public void enableClassPrepareRequest(VirtualMachine vm) {
+    ExceptionRequest exceptionRequest = vm.eventRequestManager().createExceptionRequest(null, true, true);
+    exceptionRequest.enable();
     ClassPrepareRequest classPrepareRequest = vm.eventRequestManager().createClassPrepareRequest();
     classPrepareRequest.addClassFilter(debugClass.getName());
     classPrepareRequest.enable();
@@ -138,7 +145,7 @@ public class CandidateGenerationVisualizer<T> {
     return null;
   }
 
-  private Object unpackReference(ThreadReference thread, Value value) {
+  private static Object unpackReference(ThreadReference thread, Value value) {
       if (value instanceof ArrayReference) {
         ArrayReference arrayReference = (ArrayReference)value;
         Object[] collector = new Object[arrayReference.length()];
@@ -155,7 +162,7 @@ public class CandidateGenerationVisualizer<T> {
         try {
           Value returned = ref.invokeMethod(thread, toString, Collections.emptyList(), 0);
           if (returned instanceof StringReference) {
-            System.out.println(((StringReference) returned).value());
+            return ((StringReference) returned).value();
           }
         } catch (Exception e) {
           e.printStackTrace();

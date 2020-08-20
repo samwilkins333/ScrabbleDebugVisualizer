@@ -17,7 +17,9 @@ public class JDIExampleDebuggee {
     gleb--;
     System.out.println(text);
     BoardSquare[][] board = Configuration.getStandardBoard();
-    System.out.println(Configuration.serializeBoard(board));
+    for (String line  : Configuration.serializeBoard(board)) {
+      System.out.println(line);
+    }
   }
 
 }
