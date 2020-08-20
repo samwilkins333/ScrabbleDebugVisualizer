@@ -5,9 +5,7 @@ import com.sun.jdi.event.*;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Scanner;
+import java.util.*;
 
 public class JDIExampleDebugger<T> {
 
@@ -32,7 +30,7 @@ public class JDIExampleDebugger<T> {
   public static void main(String[] args) {
     JDIExampleDebugger<JDIExampleDebuggee> debuggerInstance = new JDIExampleDebugger<>();
     debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-    int[] breakPointLines = {8, 10};
+    int[] breakPointLines = {9, 15};
     debuggerInstance.setBreakPointLines(breakPointLines);
     Scanner scanner = new Scanner(System.in);
     VirtualMachine vm;
@@ -48,7 +46,10 @@ public class JDIExampleDebugger<T> {
           if (event instanceof BreakpointEvent) {
             System.out.println("BREAKPOINT");
             event.request().disable();
-            debuggerInstance.displayVariables((BreakpointEvent) event);
+            Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables((BreakpointEvent) event);
+            if (unpackedVariables != null) {
+              System.out.println(unpackedVariables);
+            }
             try {
               System.out.println("Please enter anything to continue execution...");
               scanner.nextLine();
@@ -82,34 +83,72 @@ public class JDIExampleDebugger<T> {
     }
   }
 
-  public void displayVariables(LocatableEvent event) throws IncompatibleThreadStateException, AbsentInformationException {
-    StackFrame stackFrame = event.thread().frame(0);
+  public Map<String, Object> unpackVariables(LocatableEvent event) throws IncompatibleThreadStateException, AbsentInformationException {
+    ThreadReference thread;
+    StackFrame stackFrame = (thread = event.thread()).frame(0);
     if (stackFrame.location().toString().contains(debugClass.getName())) {
+      Map<String, Object> unpackedVariables = new HashMap<>();
       Map<LocalVariable, Value> visibleVariables = stackFrame.getValues(stackFrame.visibleVariables());
       System.out.printf("Variables at %s > \n", stackFrame.location().toString());
       for (Map.Entry<LocalVariable, Value> entry : visibleVariables.entrySet()) {
-        System.out.println(entry.getKey());
-        if (entry.getValue().type() instanceof ArrayType) {
-          ArrayReference array = (ArrayReference)entry.getValue();
-          for (int i = 0; i < array.length(); i++) {
-            Value item = array.getValue(i);
-            if (item.type() instanceof ArrayType) {
-              ArrayReference nested = (ArrayReference)item;
-              for (int j = 0; j < nested.length(); j++) {
-                Value nestedItem = nested.getValue(j);
-                if (nestedItem instanceof StringReference) {
-                  System.out.println(((StringReference)nestedItem).value());
-                }
-              }
-            } else {
-              System.out.println(item);
-            }
+        unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));
+      }
+      return unpackedVariables;
+    }
+    return null;
+  }
+
+  private Object unpackReference(ThreadReference thread, Value value) {
+      if (value instanceof ArrayReference) {
+        List<Object> collector = new ArrayList<>();
+        ArrayReference arrayReference = (ArrayReference)value;
+        for (int i = 0; i < arrayReference.length(); i++) {
+          collector.add(unpackReference(thread, arrayReference.getValue(i)));
+        }
+        return collector;
+      } else if (value instanceof StringReference) {
+        return ((StringReference) value).value();
+      } else if (value instanceof ObjectReference) {
+        ObjectReference ref = (ObjectReference) value;
+        Method toString = ref.referenceType()
+                .methodsByName("toString", "()Ljava/lang/String;").get(0);
+        try {
+          Value returned = ref.invokeMethod(thread, toString, Collections.emptyList(), 0);
+          if (returned instanceof StringReference) {
+            System.out.println(((StringReference) returned).value());
           }
-        } else {
-          System.out.println(entry.getValue());
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      } else if (value instanceof PrimitiveValue) {
+        PrimitiveValue primitiveValue = (PrimitiveValue)value;
+        String subType = value.type().name();
+        if (subType.equals("char")) {
+          return primitiveValue.charValue();
+        }
+        if (subType.equals("boolean")) {
+          return primitiveValue.booleanValue();
+        }
+        if (subType.equals("byte")) {
+          return primitiveValue.byteValue();
+        }
+        if (subType.equals("double")) {
+          return primitiveValue.doubleValue();
+        }
+        if (subType.equals("float")) {
+          return primitiveValue.floatValue();
+        }
+        if (subType.equals("int")) {
+          return primitiveValue.intValue();
+        }
+        if (subType.equals("long")) {
+          return primitiveValue.longValue();
+        }
+        if (subType.equals("short")) {
+          return primitiveValue.shortValue();
         }
       }
-    }
+      return value;
   }
 
 }
