@@ -1,31 +1,59 @@
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
-import com.sun.jdi.event.*;
 import com.sun.jdi.event.Event;
+import com.sun.jdi.event.*;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.ExceptionRequest;
 import com.sun.jdi.request.StepRequest;
 
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
 import java.awt.*;
-import java.util.*;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.awt.geom.Rectangle2D;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CandidateGenerationVisualizer<T> {
   private static JTextPane VARIABLES_DISPLAY;
 
+  static class HighlightLineTextPane extends JTextPane {
+    public HighlightLineTextPane() {
+      setOpaque(false);
+    }
+    @Override
+    protected void paintComponent(Graphics g) {
+      g.setColor(getBackground());
+      g.fillRect(0, 0, getWidth(), getHeight());
+      try {
+        Rectangle2D rect = modelToView2D(getCaretPosition());
+        if (rect != null) {
+          g.setColor(Color.RED);
+          g.fillRect(0, (int)rect.getY(), getWidth(), (int)rect.getHeight());
+        }
+      } catch (BadLocationException e) {
+        e.printStackTrace();
+      }
+      super.paintComponent(g);
+    }
+
+    @Override
+    public void repaint(long tm, int x, int y, int width, int height) {
+      super.repaint(tm, 0, 0, getWidth(), getHeight());
+    }
+  }
+
   private Class<T> debugClass;
-  private int[] breakPointLines;
-  private final List<Integer> mainLineNumbers = new ArrayList<>();
+  private Map<Integer, Boolean> breakPointLines;
 
   public void setDebugClass(Class<T> debugClass) {
     this.debugClass = debugClass;
   }
 
-  public void setBreakPointLines(int[] breakPointLines) {
+  public void setBreakPointLines(Map<Integer, Boolean> breakPointLines) {
     this.breakPointLines = breakPointLines;
   }
 
@@ -51,7 +79,7 @@ public class CandidateGenerationVisualizer<T> {
       }
     });
     button.setAlignmentX(Component.CENTER_ALIGNMENT);
-    VARIABLES_DISPLAY = new JTextPane();
+    VARIABLES_DISPLAY = new HighlightLineTextPane();
     VARIABLES_DISPLAY.setEditable(false);
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -67,13 +95,18 @@ public class CandidateGenerationVisualizer<T> {
     return () -> {
       CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance = new CandidateGenerationVisualizer<>();
       debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-      int[] breakPointLines = {12, 16, 21};
+      Map<Integer, Boolean> breakPointLines = new HashMap<>();
+      breakPointLines.put(12, false);
+      breakPointLines.put(16, true);
+      breakPointLines.put(21, false);
       debuggerInstance.setBreakPointLines(breakPointLines);
       VirtualMachine vm;
       try {
         vm = debuggerInstance.connectAndLaunchVM();
         debuggerInstance.enableClassPrepareRequest(vm);
         EventSet eventSet;
+        StepRequest activeStepRequest = null;
+        int stepCounter = 0;
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof ClassPrepareEvent) {
@@ -84,13 +117,17 @@ public class CandidateGenerationVisualizer<T> {
             }
             if (event instanceof BreakpointEvent) {
               displayUnpackedVariables("BREAKPOINT", debuggerInstance, ((BreakpointEvent) event).thread());
-              debuggerInstance.enableStepRequest(vm, (BreakpointEvent)event);
+              StepRequest candidate = debuggerInstance.enableStepRequest(vm, (BreakpointEvent)event);
+              if (candidate != null) {
+                activeStepRequest = candidate;
+                stepCounter = 0;
+              }
             }
             if (event instanceof StepEvent) {
-              if (((StepEvent) event).location().toString().contains(debuggerInstance.debugClass.getName())) {
-                stepCounter++;
+              Location location = ((StepEvent) event).location();
+              if (location.sourceName().split("\\.")[0].equals(debuggerInstance.debugClass.getName())) {
                 displayUnpackedVariables("STEP", debuggerInstance, ((StepEvent) event).thread());
-                if (stepCounter == 1) {
+                if (++stepCounter == 1 && activeStepRequest != null) {
                   activeStepRequest.disable();
                 }
               }
@@ -100,7 +137,7 @@ public class CandidateGenerationVisualizer<T> {
         }
       } catch (VMDisconnectedException e) {
         if (!VARIABLES_DISPLAY.getText().startsWith("EXCEPTION")) {
-          VARIABLES_DISPLAY.setText("Virtual Machine is cleanly disconnected");
+          VARIABLES_DISPLAY.setText("VM cleanly disconnected.");
         }
       } catch (Exception e) {
         e.printStackTrace();
@@ -150,27 +187,22 @@ public class CandidateGenerationVisualizer<T> {
 
   public void setBreakPoints(VirtualMachine vm, ClassPrepareEvent event) throws AbsentInformationException {
     ClassType classType = (ClassType) event.referenceType();
-    this.mainLineNumbers.addAll(getMainLineNumbersFor(classType));
-    for (int lineNumber : breakPointLines) {
-      Location location = classType.locationsOfLine(lineNumber).get(0);
+    for (int line : breakPointLines.keySet()) {
+      Location location = classType.locationsOfLine(line).get(0);
       BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
       breakpointRequest.enable();
     }
   }
 
-  private static List<Integer> getMainLineNumbersFor(ClassType classType) throws AbsentInformationException {
-    List<Location> locations = classType.methodsByName("main").get(0).allLineLocations();
-    return locations.stream().map(Location::lineNumber).collect(Collectors.toList());
-  }
-
-  private static StepRequest activeStepRequest = null;
-  private static int stepCounter = 0;
-
-  public void enableStepRequest(VirtualMachine vm, BreakpointEvent event) {
-    if (event.location().toString().contains(debugClass.getName() + ":" + breakPointLines[breakPointLines.length - 2])) {
-      activeStepRequest = vm.eventRequestManager().createStepRequest(event.thread(), StepRequest.STEP_LINE, StepRequest.STEP_OVER);
-      activeStepRequest.enable();
+  public StepRequest enableStepRequest(VirtualMachine vm, BreakpointEvent event) throws AbsentInformationException {
+    Location location = event.location();
+    int lineNumber = location.lineNumber();
+    if (breakPointLines.get(lineNumber) && location.sourceName().split("\\.")[0].equals(debugClass.getName())) {
+      StepRequest request = vm.eventRequestManager().createStepRequest(event.thread(), StepRequest.STEP_LINE, StepRequest.STEP_OVER);
+      request.enable();
+      return request;
     }
+    return null;
   }
 
   public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException {
