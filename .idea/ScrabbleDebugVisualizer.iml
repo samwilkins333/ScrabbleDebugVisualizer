@@ -12,5 +12,16 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../ScrabbleBase/target/scrabble-base-jar-with-dependencies.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/../ScrabbleBase/target/scrabble-base-jar-with-dependencies.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
   </component>
 </module>

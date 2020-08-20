@@ -2,13 +2,16 @@ import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.*;
+import com.sun.jdi.event.Event;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 
 import javax.swing.*;
+import java.awt.*;
 import java.util.*;
 
-public class JDIExampleDebugger<T> {
+public class CandidateGenerationVisualizer<T> {
+  private static JTextPane VARIABLES_DISPLAY;
 
   private Class<T> debugClass;
   private int[] breakPointLines;
@@ -31,16 +34,24 @@ public class JDIExampleDebugger<T> {
   public static void main(String[] args) {
     Object syncObject = new Object();
 
-    JFrame frame = new JFrame("My First GUI");
+    JFrame frame = new JFrame("Candidate Generation Visualizer");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setSize(300,300);
+    Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+    frame.setSize(dimension.width,dimension.height);
     JButton button = new JButton("Continue");
     button.addActionListener(e -> {
       synchronized (syncObject) {
         syncObject.notifyAll();
       }
     });
-    frame.getContentPane().add(button);
+    button.setAlignmentX(Component.CENTER_ALIGNMENT);
+    VARIABLES_DISPLAY = new JTextPane();
+    VARIABLES_DISPLAY.setEditable(false);
+    JPanel panel = new JPanel();
+    panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+    panel.add(button);
+    panel.add(VARIABLES_DISPLAY);
+    frame.getContentPane().add(panel);
     frame.setVisible(true);
 
     new Thread(getDebuggerAsChild(syncObject)).start();
@@ -48,7 +59,7 @@ public class JDIExampleDebugger<T> {
 
   public static Runnable getDebuggerAsChild(Object syncObject) {
     return () -> {
-      JDIExampleDebugger<JDIExampleDebuggee> debuggerInstance = new JDIExampleDebugger<>();
+      CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance = new CandidateGenerationVisualizer<>();
       debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
       int[] breakPointLines = {9, 15};
       debuggerInstance.setBreakPointLines(breakPointLines);
@@ -64,18 +75,21 @@ public class JDIExampleDebugger<T> {
             }
             if (event instanceof BreakpointEvent) {
               event.request().disable();
-              Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables((BreakpointEvent) event);
+              StringBuilder displayText = new StringBuilder("BREAKPOINT\n");
+              StackFrame frame = ((BreakpointEvent) event).thread().frame(0);
+              displayText.append(frame.location().toString()).append("\n\n");
+              Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables(frame, ((BreakpointEvent) event).thread());
               if (unpackedVariables != null) {
                 for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
-                  System.out.printf("%s = ", variable.getKey());
                   String resolved;
                   if (variable.getValue() instanceof Object[]) {
                     resolved = Arrays.deepToString((Object[]) variable.getValue());
                   } else {
                     resolved = variable.getValue().toString();
                   }
-                  System.out.println(resolved);
+                  displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
                 }
+                VARIABLES_DISPLAY.setText(displayText.toString());
               }
               synchronized (syncObject) {
                 try {
@@ -83,13 +97,14 @@ public class JDIExampleDebugger<T> {
                 } catch(InterruptedException e) {
                   System.exit(0);
                 }
+                VARIABLES_DISPLAY.setText("Running...");
               }
             }
             vm.resume();
           }
         }
       } catch (VMDisconnectedException e) {
-        System.out.println("Virtual Machine is disconnected");
+        VARIABLES_DISPLAY.setText("Virtual Machine is disconnected");
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -111,14 +126,10 @@ public class JDIExampleDebugger<T> {
     }
   }
 
-  public Map<String, Object> unpackVariables(LocatableEvent event) throws IncompatibleThreadStateException, AbsentInformationException {
-    ThreadReference thread;
-    StackFrame stackFrame = (thread = event.thread()).frame(0);
-    if (stackFrame.location().toString().contains(debugClass.getName())) {
+  public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException {
+    if (frame.location().toString().contains(debugClass.getName())) {
       Map<String, Object> unpackedVariables = new HashMap<>();
-      Map<LocalVariable, Value> visibleVariables = stackFrame.getValues(stackFrame.visibleVariables());
-      System.out.printf("Variables at %s > \n", stackFrame.location().toString());
-      for (Map.Entry<LocalVariable, Value> entry : visibleVariables.entrySet()) {
+      for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
         unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));
       }
       return unpackedVariables;
