@@ -1,8 +1,6 @@
 import com.swilkins.ScrabbleBase.Board.Configuration;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 
-import java.util.Arrays;
-
 public class JDIExampleDebuggee {
 
   public static void main(String[] args) {
