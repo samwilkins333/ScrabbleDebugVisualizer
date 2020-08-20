@@ -29,7 +29,7 @@ public class CandidateGenerationVisualizer<T> {
     LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
     Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
     arguments.get("main").setValue(debugClass.getName());
-    arguments.get("options").setValue("-classpath \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
+    arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
     return launchingConnector.launch(arguments);
   }
 
@@ -76,8 +76,7 @@ public class CandidateGenerationVisualizer<T> {
               debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
             }
             if (event instanceof ExceptionEvent) {
-              System.out.println("EXCEPTION!");
-              System.out.println(unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()));
+              VARIABLES_DISPLAY.setText("EXCEPTION\n" + unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()) + "\n\n");
             }
             if (event instanceof BreakpointEvent) {
               event.request().disable();
@@ -110,7 +109,9 @@ public class CandidateGenerationVisualizer<T> {
           }
         }
       } catch (VMDisconnectedException e) {
-        VARIABLES_DISPLAY.setText("Virtual Machine is disconnected");
+        if (!VARIABLES_DISPLAY.getText().startsWith("EXCEPTION")) {
+          VARIABLES_DISPLAY.setText("Virtual Machine is cleanly disconnected");
+        }
       } catch (Exception e) {
         e.printStackTrace();
       }
