@@ -2,10 +2,7 @@ package com.swilkins.ScrabbleViz.debug;
 
 import com.sun.jdi.Location;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
@@ -27,6 +24,10 @@ public class BreakpointManager extends HashMap<Integer, Map<Class<?>, Integer>> 
 
   public boolean validate(Location location) throws ClassNotFoundException {
     return classes.contains(toClass(location));
+  }
+
+  public Set<Class<?>> getClasses() {
+    return Collections.unmodifiableSet(classes);
   }
 
 }

@@ -22,13 +22,20 @@ public class Debugger {
     return breakpointManager;
   }
 
+  public void prepare(VirtualMachine vm) {
+    enableExceptionRequest(vm);
+    for (Class<?> clazz : breakpointManager.getClasses()) {
+      enableClassPrepareRequest(vm, clazz);
+    }
+  }
+
   public void enableExceptionRequest(VirtualMachine vm) {
     vm.eventRequestManager().createExceptionRequest(null, true, true).enable();
   }
 
-  public void enableClassPrepareRequest(VirtualMachine vm, String classFilter) {
+  public void enableClassPrepareRequest(VirtualMachine vm, Class<?> clazz) {
     ClassPrepareRequest classPrepareRequest = vm.eventRequestManager().createClassPrepareRequest();
-    classPrepareRequest.addClassFilter(classFilter);
+    classPrepareRequest.addClassFilter(clazz.getName());
     classPrepareRequest.enable();
   }
 
@@ -55,7 +62,7 @@ public class Debugger {
     }
   }
 
-  public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException, ClassNotFoundException {
+  public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException {
     Map<String, Object> unpackedVariables = new HashMap<>();
     for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
       unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));

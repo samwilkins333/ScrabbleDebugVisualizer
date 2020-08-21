@@ -74,25 +74,19 @@ public class ScrabbleViz {
       breakpointManager.register(134, Generator.class, 0);
       breakpointManager.register(24, GeneratorTarget.class, 0);
       VirtualMachine vm;
+      EventSet eventSet;
       try {
-        vm = connectAndLaunchVM();
-        debugger.enableExceptionRequest(vm);
-        debugger.enableClassPrepareRequest(vm, Generator.class.getName());
-        debugger.enableClassPrepareRequest(vm, GeneratorTarget.class.getName());
-        EventSet eventSet;
+        debugger.prepare(vm = connectAndLaunchVM());
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof ClassPrepareEvent) {
               debugger.setBreakPoints(vm, (ClassPrepareEvent) event);
-            }
-            if (event instanceof ExceptionEvent) {
+            } else if (event instanceof ExceptionEvent) {
               SOURCE_CODE_VIEW.reportException((ExceptionEvent) event);
-            }
-            if (event instanceof BreakpointEvent) {
+            } else if (event instanceof BreakpointEvent) {
               tryDisplayVariables(debugger, "BREAKPOINT", (LocatableEvent) event);
               debugger.enableStepRequest(vm, (BreakpointEvent) event);
-            }
-            if (event instanceof StepEvent) {
+            } else if (event instanceof StepEvent) {
               tryDisplayVariables(debugger, "STEP", (LocatableEvent) event);
             }
             vm.resume();
