@@ -112,7 +112,7 @@ public class ScrabbleViz {
     SOURCE_CODE_VIEW = new SourceView();
     String raw;
 
-    raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("./GeneratorTarget.java"));
+    raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java"));
     SOURCE_CODE_VIEW.addSource(GeneratorTarget.class, raw);
 
     File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
