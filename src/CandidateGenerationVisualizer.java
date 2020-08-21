@@ -10,19 +10,28 @@ import com.sun.jdi.request.StepRequest;
 
 import javax.swing.*;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.Element;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 public class CandidateGenerationVisualizer<T> {
-  private static JTextPane VARIABLES_DISPLAY;
+  private static SourceCodeView SOURCE_CODE_VIEW;
 
-  static class HighlightLineTextPane extends JTextPane {
-    public HighlightLineTextPane() {
+  static class SourceCodeView extends JTextArea {
+    public SourceCodeView(InputStream sourceCodeStream) {
+      super(getSourceAsString(sourceCodeStream));
       setOpaque(false);
+      setRequestFocusEnabled(false);
+      setFocusable(false);
+      setEditable(false);
+      setHighlighter(null);
+      getCaret().addChangeListener(e -> System.out.println("Caret updated."));
     }
     @Override
     protected void paintComponent(Graphics g) {
@@ -31,7 +40,7 @@ public class CandidateGenerationVisualizer<T> {
       try {
         Rectangle2D rect = modelToView2D(getCaretPosition());
         if (rect != null) {
-          g.setColor(Color.RED);
+          g.setColor(Color.MAGENTA);
           g.fillRect(0, (int)rect.getY(), getWidth(), (int)rect.getHeight());
         }
       } catch (BadLocationException e) {
@@ -44,6 +53,17 @@ public class CandidateGenerationVisualizer<T> {
     public void repaint(long tm, int x, int y, int width, int height) {
       super.repaint(tm, 0, 0, getWidth(), getHeight());
     }
+
+    public void gotoStartOfLine(int line)
+    {
+      Element root = getDocument().getDefaultRootElement();
+      line = Math.max(line, 1);
+      line = Math.min(line, root.getElementCount());
+      int startOfLineOffset = root.getElement(line - 1).getStartOffset();
+      setCaretPosition(startOfLineOffset);
+      centerLineInScrollPane(this);
+    }
+
   }
 
   private Class<T> debugClass;
@@ -67,7 +87,7 @@ public class CandidateGenerationVisualizer<T> {
 
   private static final Object LOCK = new Object();
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     JFrame frame = new JFrame("Candidate Generation Visualizer");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
@@ -79,16 +99,65 @@ public class CandidateGenerationVisualizer<T> {
       }
     });
     button.setAlignmentX(Component.CENTER_ALIGNMENT);
-    VARIABLES_DISPLAY = new HighlightLineTextPane();
-    VARIABLES_DISPLAY.setEditable(false);
+    File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
+    JarFile jarFile = new JarFile(file);
+    JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
+    SOURCE_CODE_VIEW = new SourceCodeView(jarFile.getInputStream(generator));
+    SOURCE_CODE_VIEW.gotoStartOfLine(15);
+    JScrollPane scrollPane = new JScrollPane(SOURCE_CODE_VIEW);
+    scrollPane.setAutoscrolls(true);
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.add(button);
-    panel.add(VARIABLES_DISPLAY);
+    panel.add(scrollPane);
     frame.getContentPane().add(panel);
     frame.setVisible(true);
 
     new Thread(getDebuggerAsChild()).start();
+  }
+
+  public static void centerLineInScrollPane(JTextComponent component)
+  {
+    Container container = SwingUtilities.getAncestorOfClass(JViewport.class, component);
+
+    if (container == null) {
+      System.out.println("GAAAHHHHHH");
+      return;
+    }
+
+    try {
+      Rectangle2D r = component.modelToView2D(component.getCaretPosition());
+      JViewport viewport = (JViewport)container;
+      int extentHeight = viewport.getExtentSize().height;
+      int viewHeight = viewport.getViewSize().height;
+
+      int y = Math.max(0, (int)r.getY() - ((extentHeight - (int)r.getHeight()) / 2));
+      y = Math.min(y, viewHeight - extentHeight);
+
+      viewport.setViewPosition(new Point(0, y));
+    }  catch (BadLocationException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static String getSourceAsString(InputStream inputStream) {
+    String generatorSourceString;
+    try {
+
+      final int bufferSize = 1024;
+      final char[] buffer = new char[bufferSize];
+      final StringBuilder out = new StringBuilder();
+      Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+      int charsRead;
+      while((charsRead = in.read(buffer, 0, buffer.length)) > 0) {
+        out.append(buffer, 0, charsRead);
+      }
+      generatorSourceString = out.toString();
+    } catch (IOException e) {
+      generatorSourceString = null;
+      e.printStackTrace();
+    }
+    return generatorSourceString;
   }
 
   public static Runnable getDebuggerAsChild() {
@@ -113,7 +182,7 @@ public class CandidateGenerationVisualizer<T> {
               debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
             }
             if (event instanceof ExceptionEvent) {
-              VARIABLES_DISPLAY.setText("EXCEPTION\n" + unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()) + "\n\n");
+//              VARIABLES_DISPLAY.setText("EXCEPTION\n" + unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()) + "\n\n");
             }
             if (event instanceof BreakpointEvent) {
               displayUnpackedVariables("BREAKPOINT", debuggerInstance, ((BreakpointEvent) event).thread());
@@ -136,8 +205,8 @@ public class CandidateGenerationVisualizer<T> {
           }
         }
       } catch (VMDisconnectedException e) {
-        if (!VARIABLES_DISPLAY.getText().startsWith("EXCEPTION")) {
-          VARIABLES_DISPLAY.setText("VM cleanly disconnected.");
+        if (!SOURCE_CODE_VIEW.getText().startsWith("EXCEPTION")) {
+//          VARIABLES_DISPLAY.setText("VM cleanly disconnected.");
         }
       } catch (Exception e) {
         e.printStackTrace();
@@ -165,7 +234,7 @@ public class CandidateGenerationVisualizer<T> {
         }
         displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
       }
-      VARIABLES_DISPLAY.setText(displayText.toString());
+//      VARIABLES_DISPLAY.setText(displayText.toString());
     }
     synchronized (LOCK) {
       try {
@@ -173,7 +242,7 @@ public class CandidateGenerationVisualizer<T> {
       } catch(InterruptedException e) {
         System.exit(0);
       }
-      VARIABLES_DISPLAY.setText("Running...");
+//      VARIABLES_DISPLAY.setText("Running...");
     }
   }
 
