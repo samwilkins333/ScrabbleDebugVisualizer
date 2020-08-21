@@ -7,7 +7,6 @@ import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.ExceptionRequest;
 import com.sun.jdi.request.StepRequest;
-import com.swilkins.ScrabbleBase.Generation.Generator;
 
 import javax.swing.*;
 import java.awt.*;
@@ -89,7 +88,7 @@ public class CandidateGenerationVisualizer<T> {
         vm = debuggerInstance.connectAndLaunchVM();
         debuggerInstance.enableClassPrepareRequest(vm);
         EventSet eventSet;
-        StepRequest activeStepRequest = null;
+//        StepRequest activeStepRequest = null;
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof ClassPrepareEvent) {
@@ -107,17 +106,17 @@ public class CandidateGenerationVisualizer<T> {
             if (event instanceof BreakpointEvent) {
               displayUnpackedVariables("BREAKPOINT", debuggerInstance, ((BreakpointEvent) event).thread());
               StepRequest candidate = debuggerInstance.enableStepRequest(vm, (BreakpointEvent)event);
-              if (candidate != null) {
-                activeStepRequest = candidate;
-              }
+//              if (candidate != null) {
+//                activeStepRequest = candidate;
+//              }
             }
             if (event instanceof StepEvent) {
               Location location = ((StepEvent) event).location();
               if (validate(location)) {
                 displayUnpackedVariables("STEP", debuggerInstance, ((StepEvent) event).thread());
-                if (activeStepRequest != null) {
-                  activeStepRequest.disable();
-                }
+//                if (activeStepRequest != null) {
+//                  activeStepRequest.disable();
+//                }
               }
             }
             vm.resume();
@@ -142,7 +141,6 @@ public class CandidateGenerationVisualizer<T> {
           CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance,
           ThreadReference thread
   ) throws AbsentInformationException, IncompatibleThreadStateException {
-    System.out.println(prompt);
     StringBuilder displayText = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
     displayText.append(frame.location().toString()).append("\n\n");
@@ -186,7 +184,7 @@ public class CandidateGenerationVisualizer<T> {
     }
   }
 
-  public StepRequest enableStepRequest(VirtualMachine vm, BreakpointEvent event) throws AbsentInformationException {
+  public StepRequest enableStepRequest(VirtualMachine vm, BreakpointEvent event) {
     Location location = event.location();
     int lineNumber = location.lineNumber();
     int action;
