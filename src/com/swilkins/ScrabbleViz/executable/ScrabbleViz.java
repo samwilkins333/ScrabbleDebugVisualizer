@@ -125,14 +125,13 @@ public class ScrabbleViz {
   private static void tryDisplayVariables(Debugger debugger, String prompt, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
-    Class<?> clazz = toClass(location);
     if (!debugger.getBreakpointManager().validate(location)) {
       return;
     }
-    SOURCE_CODE_VIEW.highlightLine(clazz, location.lineNumber());
-    StringBuilder displayText = new StringBuilder(prompt).append("\n");
+    SOURCE_CODE_VIEW.highlightLine(toClass(location), location.lineNumber());
+    StringBuilder variables = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
-    displayText.append(frame.location().toString()).append("\n\n");
+    variables.append(frame.location().toString()).append("\n\n");
     Map<String, Object> unpackedVariables = debugger.unpackVariables(frame, thread);
     for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
       String resolved;
@@ -141,9 +140,9 @@ public class ScrabbleViz {
       } else {
         resolved = variable.getValue().toString();
       }
-      displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
+      variables.append(variable.getKey()).append(" = ").append(resolved).append("\n");
     }
-    VARIABLES_VIEW.setText(displayText.toString());
+    VARIABLES_VIEW.setText(variables.toString());
     synchronized (DISPLAY_LOCK) {
       try {
         DISPLAY_LOCK.wait();
