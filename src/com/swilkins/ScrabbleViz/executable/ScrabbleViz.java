@@ -1,6 +1,8 @@
 package com.swilkins.ScrabbleViz.executable;
 
 import com.sun.jdi.*;
+import com.sun.jdi.connect.Connector;
+import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.*;
 import com.swilkins.ScrabbleBase.Generation.Generator;
@@ -19,21 +21,19 @@ import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
-
 public class ScrabbleViz {
   private static SourceCodeView SOURCE_CODE_VIEW;
   private static TextArea VARIABLES_VIEW;
   private static final Class<?> mainClass = GeneratorTarget.class;
 
-  private static final Object LOCK = new Object();
+  private static final Object DISPLAY_LOCK = new Object();
 
   public static void main(String[] args) throws IOException {
     JButton button = new JButton("Continue");
     button.setAlignmentX(Component.CENTER_ALIGNMENT);
     button.addActionListener(e -> {
-      synchronized (LOCK) {
-        LOCK.notifyAll();
+      synchronized (DISPLAY_LOCK) {
+        DISPLAY_LOCK.notifyAll();
       }
     });
 
@@ -67,7 +67,7 @@ public class ScrabbleViz {
 
   public static Runnable executeDebugger(Invokable onTerminate) {
     return () -> {
-      Debugger debugger = new Debugger(mainClass);
+      Debugger debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
       breakpointManager.register(15, GeneratorTarget.class, 0);
       breakpointManager.register(114, Generator.class, 0);
@@ -75,8 +75,8 @@ public class ScrabbleViz {
       breakpointManager.register(24, GeneratorTarget.class, 0);
       VirtualMachine vm;
       try {
-        vm = debugger.connectAndLaunchVM();
-        vm.eventRequestManager().createExceptionRequest(null, true, true).enable();
+        vm = connectAndLaunchVM();
+        debugger.enableExceptionRequest(vm);
         debugger.enableClassPrepareRequest(vm, Generator.class.getName());
         debugger.enableClassPrepareRequest(vm, GeneratorTarget.class.getName());
         EventSet eventSet;
@@ -85,58 +85,59 @@ public class ScrabbleViz {
             if (event instanceof ClassPrepareEvent) {
               debugger.setBreakPoints(vm, (ClassPrepareEvent) event);
             }
-            if (event instanceof LocatableEvent) {
-              Location location = ((LocatableEvent) event).location();
-              if (breakpointManager.validate(location)) {
-                SOURCE_CODE_VIEW.jumpToLine(location.lineNumber());
-              }
-            }
             if (event instanceof ExceptionEvent) {
-              SOURCE_CODE_VIEW.setText("EXCEPTION\n" + unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()) + "\n\n");
+              SOURCE_CODE_VIEW.reportException((ExceptionEvent) event);
             }
             if (event instanceof BreakpointEvent) {
-              displayUnpackedVariables(debugger, "BREAKPOINT", ((BreakpointEvent) event).thread());
+              tryDisplayVariables(debugger, "BREAKPOINT", (LocatableEvent) event);
               debugger.enableStepRequest(vm, (BreakpointEvent) event);
             }
             if (event instanceof StepEvent) {
-              Location location = ((StepEvent) event).location();
-              if (breakpointManager.validate(location)) {
-                displayUnpackedVariables(debugger, "STEP", ((StepEvent) event).thread());
-              }
+              tryDisplayVariables(debugger, "STEP", (LocatableEvent) event);
             }
             vm.resume();
           }
         }
       } catch (VMDisconnectedException e) {
-        if (!SOURCE_CODE_VIEW.getText().startsWith("EXCEPTION")) {
-          onTerminate.invoke();
-        }
+        onTerminate.invoke();
       } catch (Exception e) {
         e.printStackTrace();
       }
     };
   }
 
-  private static void displayUnpackedVariables(Debugger debugger, String prompt, ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+  public static VirtualMachine connectAndLaunchVM() throws Exception {
+    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
+    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
+    arguments.get("main").setValue(mainClass.getName());
+    arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
+    return launchingConnector.launch(arguments);
+  }
+
+  private static void tryDisplayVariables(Debugger debugger, String prompt, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+    ThreadReference thread = event.thread();
+    Location location = event.location();
+    if (!debugger.getBreakpointManager().validate(location)) {
+      return;
+    }
+    SOURCE_CODE_VIEW.highlightLine(location.lineNumber());
     StringBuilder displayText = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
     displayText.append(frame.location().toString()).append("\n\n");
     Map<String, Object> unpackedVariables = debugger.unpackVariables(frame, thread);
-    if (unpackedVariables != null) {
-      for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
-        String resolved;
-        if (variable.getValue() instanceof Object[]) {
-          resolved = Arrays.deepToString((Object[]) variable.getValue());
-        } else {
-          resolved = variable.getValue().toString();
-        }
-        displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
+    for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
+      String resolved;
+      if (variable.getValue() instanceof Object[]) {
+        resolved = Arrays.deepToString((Object[]) variable.getValue());
+      } else {
+        resolved = variable.getValue().toString();
       }
-      VARIABLES_VIEW.setText(displayText.toString());
+      displayText.append(variable.getKey()).append(" = ").append(resolved).append("\n");
     }
-    synchronized (LOCK) {
+    VARIABLES_VIEW.setText(displayText.toString());
+    synchronized (DISPLAY_LOCK) {
       try {
-        LOCK.wait();
+        DISPLAY_LOCK.wait();
       } catch (InterruptedException e) {
         System.exit(0);
       }

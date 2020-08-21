@@ -1,5 +1,6 @@
 package com.swilkins.ScrabbleViz.view;
 
+import com.sun.jdi.event.ExceptionEvent;
 import com.swilkins.ScrabbleViz.utility.Utilities;
 
 import javax.swing.*;
@@ -11,6 +12,8 @@ import java.awt.event.FocusListener;
 import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.io.InputStream;
+
+import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
 
 public class SourceCodeView extends JTextArea {
 
@@ -53,7 +56,7 @@ public class SourceCodeView extends JTextArea {
     super.repaint(tm, 0, 0, getWidth(), getHeight());
   }
 
-  public void jumpToLine(int line) {
+  public void highlightLine(int line) {
     Element root = getDocument().getDefaultRootElement();
     line = Math.max(line, 1);
     line = Math.min(line, root.getElementCount());
@@ -79,6 +82,11 @@ public class SourceCodeView extends JTextArea {
     } catch (BadLocationException e) {
       e.printStackTrace();
     }
+  }
+
+  public void reportException(ExceptionEvent event) {
+    Object exception = unpackReference(event.thread(), event.exception());
+    setText(String.format("EXCEPTION\n%s\n\n", exception));
   }
 
 }

@@ -1,8 +1,6 @@
 package com.swilkins.ScrabbleViz.debug;
 
 import com.sun.jdi.*;
-import com.sun.jdi.connect.Connector;
-import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.request.BreakpointRequest;
@@ -18,23 +16,14 @@ import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
 
 public class Debugger {
 
-  private final Class<?> mainClass;
   private BreakpointManager breakpointManager = new BreakpointManager();
-
-  public Debugger(Class<?> mainClass) {
-    this.mainClass = mainClass;
-  }
-
-  public VirtualMachine connectAndLaunchVM() throws Exception {
-    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
-    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-    arguments.get("main").setValue(mainClass.getName());
-    arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
-    return launchingConnector.launch(arguments);
-  }
 
   public BreakpointManager getBreakpointManager() {
     return breakpointManager;
+  }
+
+  public void enableExceptionRequest(VirtualMachine vm) {
+    vm.eventRequestManager().createExceptionRequest(null, true, true).enable();
   }
 
   public void enableClassPrepareRequest(VirtualMachine vm, String classFilter) {
@@ -67,14 +56,11 @@ public class Debugger {
   }
 
   public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException, ClassNotFoundException {
-    if (breakpointManager.validate(frame.location())) {
-      Map<String, Object> unpackedVariables = new HashMap<>();
-      for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
-        unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));
-      }
-      return unpackedVariables;
+    Map<String, Object> unpackedVariables = new HashMap<>();
+    for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
+      unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));
     }
-    return null;
+    return unpackedVariables;
   }
 
 }
