@@ -1,7 +1,7 @@
 package com.swilkins.ScrabbleViz.view;
 
 import com.sun.jdi.event.ExceptionEvent;
-import com.swilkins.ScrabbleViz.utility.Utilities;
+import com.swilkins.ScrabbleViz.debug.exception.MissingSourceException;
 
 import javax.swing.*;
 import javax.swing.event.CaretListener;
@@ -11,14 +11,16 @@ import java.awt.*;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
-import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
 
-public class SourceCodeView extends JTextArea {
+public class SourceView extends JTextArea {
+  private final Map<Class<?>, String> sources = new HashMap<>();
 
-  public SourceCodeView(InputStream sourceCodeStream) {
-    super(Utilities.inputStreamToString(sourceCodeStream));
+  public SourceView() {
+    super();
     setOpaque(false);
     setRequestFocusEnabled(false);
     setFocusable(false);
@@ -33,6 +35,10 @@ public class SourceCodeView extends JTextArea {
     for (FocusListener listener : getFocusListeners()) {
       removeFocusListener(listener);
     }
+  }
+
+  public void addSource(Class<?> clazz, String raw) {
+    sources.put(clazz, raw);
   }
 
   @Override
@@ -56,11 +62,16 @@ public class SourceCodeView extends JTextArea {
     super.repaint(tm, 0, 0, getWidth(), getHeight());
   }
 
-  public void highlightLine(int line) {
+  public void highlightLine(Class<?> clazz, int lineNumber) {
+    String raw = sources.get(clazz);
+    if (raw == null) {
+      throw new MissingSourceException(clazz);
+    }
+    setText(raw);
     Element root = getDocument().getDefaultRootElement();
-    line = Math.max(line, 1);
-    line = Math.min(line, root.getElementCount());
-    int startOfLineOffset = root.getElement(line - 1).getStartOffset();
+    lineNumber = Math.max(lineNumber, 1);
+    lineNumber = Math.min(lineNumber, root.getElementCount());
+    int startOfLineOffset = root.getElement(lineNumber - 1).getStartOffset();
     setCaretPosition(startOfLineOffset);
 
     Container container = SwingUtilities.getAncestorOfClass(JViewport.class, this);

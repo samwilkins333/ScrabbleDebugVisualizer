@@ -9,7 +9,7 @@ import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleViz.debug.BreakpointManager;
 import com.swilkins.ScrabbleViz.debug.Debugger;
 import com.swilkins.ScrabbleViz.utility.Invokable;
-import com.swilkins.ScrabbleViz.view.SourceCodeView;
+import com.swilkins.ScrabbleViz.view.SourceView;
 
 import javax.swing.*;
 import java.awt.*;
@@ -21,8 +21,11 @@ import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import static com.swilkins.ScrabbleViz.utility.Utilities.inputStreamToString;
+import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
+
 public class ScrabbleViz {
-  private static SourceCodeView SOURCE_CODE_VIEW;
+  private static SourceView SOURCE_CODE_VIEW;
   private static TextArea VARIABLES_VIEW;
   private static final Class<?> mainClass = GeneratorTarget.class;
 
@@ -37,10 +40,7 @@ public class ScrabbleViz {
       }
     });
 
-    File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
-    JarFile jarFile = new JarFile(file);
-    JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
-    SOURCE_CODE_VIEW = new SourceCodeView(jarFile.getInputStream(generator));
+    initializeSourceView();
 
     JScrollPane scrollPane = new JScrollPane(SOURCE_CODE_VIEW);
     scrollPane.setWheelScrollingEnabled(false);
@@ -100,7 +100,7 @@ public class ScrabbleViz {
     };
   }
 
-  public static VirtualMachine connectAndLaunchVM() throws Exception {
+  private static VirtualMachine connectAndLaunchVM() throws Exception {
     LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
     Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
     arguments.get("main").setValue(mainClass.getName());
@@ -108,13 +108,28 @@ public class ScrabbleViz {
     return launchingConnector.launch(arguments);
   }
 
+  private static void initializeSourceView() throws IOException {
+    SOURCE_CODE_VIEW = new SourceView();
+    String raw;
+
+    raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("./GeneratorTarget.java"));
+    SOURCE_CODE_VIEW.addSource(GeneratorTarget.class, raw);
+
+    File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
+    JarFile jarFile = new JarFile(file);
+    JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
+    raw = inputStreamToString(jarFile.getInputStream(generator));
+    SOURCE_CODE_VIEW.addSource(Generator.class, raw);
+  }
+
   private static void tryDisplayVariables(Debugger debugger, String prompt, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
+    Class<?> clazz = toClass(location);
     if (!debugger.getBreakpointManager().validate(location)) {
       return;
     }
-    SOURCE_CODE_VIEW.highlightLine(location.lineNumber());
+    SOURCE_CODE_VIEW.highlightLine(clazz, location.lineNumber());
     StringBuilder displayText = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
     displayText.append(frame.location().toString()).append("\n\n");

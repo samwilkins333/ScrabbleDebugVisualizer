@@ -6,6 +6,7 @@ import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.StepRequest;
+import com.swilkins.ScrabbleViz.debug.exception.InvalidBreakpointException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -41,13 +42,16 @@ public class Debugger {
 
   public void setBreakPoints(VirtualMachine vm, ClassPrepareEvent event) throws AbsentInformationException, ClassNotFoundException {
     ClassType classType = (ClassType) event.referenceType();
+    Class<?> clazz = Class.forName(classType.name());
     for (int lineNumber : breakpointManager.keySet()) {
-      if (breakpointManager.actionFor(lineNumber, Class.forName(classType.name())) != null) {
+      if (breakpointManager.actionFor(lineNumber, clazz) != null) {
         List<Location> possibleLocations = classType.locationsOfLine(lineNumber);
         if (!possibleLocations.isEmpty()) {
           Location location = possibleLocations.get(0);
           BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
           breakpointRequest.enable();
+        } else {
+          throw new InvalidBreakpointException(clazz, lineNumber);
         }
       }
     }
