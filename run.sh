@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-rm *.class
-javac -g -cp ".:../lib/scrabble-base-jar-with-dependencies.jar" *.java
-java CandidateGenerationVisualizer
-#java -cp ".:../lib/scrabble-base-jar-with-dependencies.jar" JDIExampleDebuggee
+find . -name "*.class" | xargs rm;
+find . -name "*.java" | xargs javac -g -cp ".:../lib/scrabble-base-jar-with-dependencies.jar";
+java -cp ".:../lib/scrabble-base-jar-with-dependencies.jar" "com/swilkins/ScrabbleViz/executable/$@";

@@ -1,3 +1,5 @@
+package com.swilkins.ScrabbleViz.executable;
+
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
@@ -5,34 +7,32 @@ import com.sun.jdi.event.Event;
 import com.sun.jdi.event.*;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
-import com.sun.jdi.request.ExceptionRequest;
 import com.sun.jdi.request.StepRequest;
+import com.swilkins.ScrabbleBase.Generation.Generator;
+import com.swilkins.ScrabbleViz.debug.BreakpointManager;
+import com.swilkins.ScrabbleViz.view.SourceCodeView;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-public class CandidateGenerationVisualizer<T> {
+import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
+
+public class ScrabbleViz {
   private static SourceCodeView SOURCE_CODE_VIEW;
   private static TextArea VARIABLES_VIEW;
 
-  private Class<T> debugClass;
-  private Map<Integer, Integer> breakPointLines;
+  private Class<?> debugClass;
+  private BreakpointManager breakpointManager = new BreakpointManager();
 
-  public void setDebugClass(Class<T> debugClass) {
+  public void setDebugClass(Class<?> debugClass) {
     this.debugClass = debugClass;
-  }
-
-  public void setBreakPointLines(Map<Integer, Integer> breakPointLines) {
-    this.breakPointLines = breakPointLines;
   }
 
   public VirtualMachine connectAndLaunchVM() throws Exception {
@@ -73,26 +73,28 @@ public class CandidateGenerationVisualizer<T> {
     frame.getContentPane().add(panel);
     frame.setVisible(true);
 
-    new Thread(getDebuggerAsChild(frame)).start();
+    new Thread(executeDebugger(frame)).start();
   }
 
-  public static Runnable getDebuggerAsChild(JFrame frame) {
+  public static Runnable executeDebugger(JFrame frame) {
     return () -> {
-      CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance = new CandidateGenerationVisualizer<>();
-      debuggerInstance.setDebugClass(JDIExampleDebuggee.class);
-      Map<Integer, Integer> breakPointLines = new HashMap<>();
-      breakPointLines.put(114, StepRequest.STEP_OVER);
-      debuggerInstance.setBreakPointLines(breakPointLines);
+      ScrabbleViz debugger = new ScrabbleViz();
+      debugger.setDebugClass(GeneratorTarget.class);
+      debugger.breakpointManager.register(15, GeneratorTarget.class, 0);
+      debugger.breakpointManager.register(114, Generator.class, 0);
+      debugger.breakpointManager.register(134, Generator.class, 0);
+      debugger.breakpointManager.register(24, GeneratorTarget.class, 0);
       VirtualMachine vm;
       try {
-        vm = debuggerInstance.connectAndLaunchVM();
-        debuggerInstance.enableClassPrepareRequest(vm);
+        vm = debugger.connectAndLaunchVM();
+        vm.eventRequestManager().createExceptionRequest(null, true, true).enable();
+        debugger.enableClassPrepareRequest(vm, Generator.class.getName());
+        debugger.enableClassPrepareRequest(vm, GeneratorTarget.class.getName());
         EventSet eventSet;
-//        StepRequest activeStepRequest = null;
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof ClassPrepareEvent) {
-              debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
+              debugger.setBreakPoints(vm, (ClassPrepareEvent)event);
             }
             if (event instanceof LocatableEvent) {
               Location location = ((LocatableEvent) event).location();
@@ -104,19 +106,13 @@ public class CandidateGenerationVisualizer<T> {
               SOURCE_CODE_VIEW.setText("EXCEPTION\n" + unpackReference(((ExceptionEvent) event).thread(), ((ExceptionEvent) event).exception()) + "\n\n");
             }
             if (event instanceof BreakpointEvent) {
-              displayUnpackedVariables("BREAKPOINT", debuggerInstance, ((BreakpointEvent) event).thread());
-              StepRequest candidate = debuggerInstance.enableStepRequest(vm, (BreakpointEvent)event);
-//              if (candidate != null) {
-//                activeStepRequest = candidate;
-//              }
+              displayUnpackedVariables("BREAKPOINT", debugger, ((BreakpointEvent) event).thread());
+              debugger.enableStepRequest(vm, (BreakpointEvent)event);
             }
             if (event instanceof StepEvent) {
               Location location = ((StepEvent) event).location();
               if (validate(location)) {
-                displayUnpackedVariables("STEP", debuggerInstance, ((StepEvent) event).thread());
-//                if (activeStepRequest != null) {
-//                  activeStepRequest.disable();
-//                }
+                displayUnpackedVariables("STEP", debugger, ((StepEvent) event).thread());
               }
             }
             vm.resume();
@@ -138,13 +134,13 @@ public class CandidateGenerationVisualizer<T> {
 
   private static void displayUnpackedVariables(
           String prompt,
-          CandidateGenerationVisualizer<JDIExampleDebuggee> debuggerInstance,
+          ScrabbleViz debugger,
           ThreadReference thread
   ) throws AbsentInformationException, IncompatibleThreadStateException {
     StringBuilder displayText = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
     displayText.append(frame.location().toString()).append("\n\n");
-    Map<String, Object> unpackedVariables = debuggerInstance.unpackVariables(frame, thread);
+    Map<String, Object> unpackedVariables = debugger.unpackVariables(frame, thread);
     if (unpackedVariables != null) {
       for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
         String resolved;
@@ -167,33 +163,40 @@ public class CandidateGenerationVisualizer<T> {
     }
   }
 
-  public void enableClassPrepareRequest(VirtualMachine vm) {
-    ExceptionRequest exceptionRequest = vm.eventRequestManager().createExceptionRequest(null, true, true);
-    exceptionRequest.enable();
+  public void enableClassPrepareRequest(VirtualMachine vm, String classFilter) {
     ClassPrepareRequest classPrepareRequest = vm.eventRequestManager().createClassPrepareRequest();
-    classPrepareRequest.addClassFilter("*.Generator");
+    classPrepareRequest.addClassFilter(classFilter);
     classPrepareRequest.enable();
   }
 
-  public void setBreakPoints(VirtualMachine vm, ClassPrepareEvent event) throws AbsentInformationException {
+  public void setBreakPoints(VirtualMachine vm, ClassPrepareEvent event) throws AbsentInformationException, ClassNotFoundException {
     ClassType classType = (ClassType) event.referenceType();
-    for (int line : breakPointLines.keySet()) {
-      Location location = classType.locationsOfLine(line).get(0);
-      BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
-      breakpointRequest.enable();
+    Class<?> clazz = Class.forName(classType.name());
+    for (int lineNumber : breakpointManager.keySet()) {
+      if (breakpointManager.actionFor(lineNumber, clazz) != null) {
+        List<Location> possibleLocations = classType.locationsOfLine(lineNumber);
+        if (!possibleLocations.isEmpty()) {
+          System.out.printf("Setting breakpoint at %d for %s\n", lineNumber, clazz.getName());
+          Location location = possibleLocations.get(0);
+          BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
+          breakpointRequest.enable();
+        }
+      }
     }
   }
 
-  public StepRequest enableStepRequest(VirtualMachine vm, BreakpointEvent event) {
+  private static String qualifiedName(Location location) {
+    return location.toString().split(":")[0];
+  }
+
+  public void enableStepRequest(VirtualMachine vm, BreakpointEvent event) throws ClassNotFoundException {
     Location location = event.location();
-    int lineNumber = location.lineNumber();
-    int action;
-    if ((action = breakPointLines.get(lineNumber)) != 0 && validate(location)) {
+    Class<?> clazz = Class.forName(qualifiedName(location));
+    Integer action;
+    if ((action = breakpointManager.actionFor(location.lineNumber(), clazz)) != 0) {
       StepRequest request = vm.eventRequestManager().createStepRequest(event.thread(), StepRequest.STEP_LINE, action);
       request.enable();
-      return request;
     }
-    return null;
   }
 
   public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException {
@@ -205,59 +208,6 @@ public class CandidateGenerationVisualizer<T> {
       return unpackedVariables;
     }
     return null;
-  }
-
-  private static Object unpackReference(ThreadReference thread, Value value) {
-      if (value instanceof ArrayReference) {
-        ArrayReference arrayReference = (ArrayReference)value;
-        Object[] collector = new Object[arrayReference.length()];
-        for (int i = 0; i < arrayReference.length(); i++) {
-          collector[i] = (unpackReference(thread, arrayReference.getValue(i)));
-        }
-        return collector;
-      } else if (value instanceof StringReference) {
-        return ((StringReference) value).value();
-      } else if (value instanceof ObjectReference) {
-        ObjectReference ref = (ObjectReference) value;
-        Method toString = ref.referenceType()
-                .methodsByName("toString", "()Ljava/lang/String;").get(0);
-        try {
-          Value returned = ref.invokeMethod(thread, toString, Collections.emptyList(), 0);
-          if (returned instanceof StringReference) {
-            return ((StringReference) returned).value();
-          }
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-      } else if (value instanceof PrimitiveValue) {
-        PrimitiveValue primitiveValue = (PrimitiveValue)value;
-        String subType = value.type().name();
-        if (subType.equals("char")) {
-          return primitiveValue.charValue();
-        }
-        if (subType.equals("boolean")) {
-          return primitiveValue.booleanValue();
-        }
-        if (subType.equals("byte")) {
-          return primitiveValue.byteValue();
-        }
-        if (subType.equals("double")) {
-          return primitiveValue.doubleValue();
-        }
-        if (subType.equals("float")) {
-          return primitiveValue.floatValue();
-        }
-        if (subType.equals("int")) {
-          return primitiveValue.intValue();
-        }
-        if (subType.equals("long")) {
-          return primitiveValue.longValue();
-        }
-        if (subType.equals("short")) {
-          return primitiveValue.shortValue();
-        }
-      }
-      return value;
   }
 
 }

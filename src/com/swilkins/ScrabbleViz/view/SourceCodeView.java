@@ -1,4 +1,6 @@
-import com.sun.jdi.event.LocatableEvent;
+package com.swilkins.ScrabbleViz.view;
+
+import com.swilkins.ScrabbleViz.utility.Utilities;
 
 import javax.swing.*;
 import javax.swing.event.CaretListener;
@@ -49,10 +51,6 @@ public class SourceCodeView extends JTextArea {
   @Override
   public void repaint(long tm, int x, int y, int width, int height) {
     super.repaint(tm, 0, 0, getWidth(), getHeight());
-  }
-
-  public void jumpToLineOf(LocatableEvent event) {
-    this.jumpToLine(event.location().lineNumber());
   }
 
   public void jumpToLine(int line) {

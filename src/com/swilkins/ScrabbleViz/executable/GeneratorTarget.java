@@ -1,3 +1,5 @@
+package com.swilkins.ScrabbleViz.executable;
+
 import com.swilkins.ScrabbleBase.Board.Configuration;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Rack;
@@ -5,7 +7,7 @@ import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleBase.Generation.GeneratorResult;
 import com.swilkins.ScrabbleBase.Vocabulary.PermutationTrie;
 
-public class JDIExampleDebuggee {
+public class GeneratorTarget {
 
   public static void main(String[] args) {
     Rack rack = new Rack(Configuration.STANDARD_RACK_CAPACITY);
@@ -16,7 +18,7 @@ public class JDIExampleDebuggee {
     board[7][9].setTile(Configuration.getStandardTile('s'));
     board[7][10].setTile(Configuration.getStandardTile('h'));
     PermutationTrie trie = new PermutationTrie();
-    trie.loadFrom(JDIExampleDebuggee.class.getResource("ospd4.txt"), String::trim);
+    trie.loadFrom(GeneratorTarget.class.getResource("../resource/ospd4.txt"), String::trim);
     Generator generator = new Generator(trie, Configuration.STANDARD_RACK_CAPACITY);
     GeneratorResult result = generator.compute(rack, board).orderBy(Generator.getDefaultOrdering());
     System.out.println(result.get(0));
