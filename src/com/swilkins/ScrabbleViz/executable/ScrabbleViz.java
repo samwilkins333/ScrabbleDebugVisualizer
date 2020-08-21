@@ -13,6 +13,7 @@ import com.swilkins.ScrabbleViz.view.SourceView;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.EventQueue;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
@@ -25,47 +26,63 @@ import static com.swilkins.ScrabbleViz.utility.Utilities.inputStreamToString;
 import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
 public class ScrabbleViz {
-  private static SourceView SOURCE_CODE_VIEW;
-  private static TextArea VARIABLES_VIEW;
+  private static SourceView sourceView;
+  private static TextArea variableView;
   private static final Class<?> mainClass = GeneratorTarget.class;
 
-  private static final Object DISPLAY_LOCK = new Object();
+  private static final Object displayLock = new Object();
 
-  public static void main(String[] args) throws IOException {
-    JButton button = new JButton("Continue");
-    button.setAlignmentX(Component.CENTER_ALIGNMENT);
-    button.addActionListener(e -> {
-      synchronized (DISPLAY_LOCK) {
-        DISPLAY_LOCK.notifyAll();
+  public static void main(String[] args) {
+    EventQueue.invokeLater(() -> {
+      Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+      JFrame frame = new JFrame("Candidate Generation Visualizer");
+      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+      frame.setSize(dimension.width, dimension.height);
+      Invokable onTerminate = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+
+      try {
+        populateChildren(frame.getContentPane());
+      } catch (IOException e) {
+        e.printStackTrace();
       }
+
+      frame.setVisible(true);
+      frame.setResizable(false);
+
+      new Thread(executeDebugger(onTerminate)).start();
     });
+  }
 
+  private static void populateChildren(Container container) throws IOException {
     initializeSourceView();
-
-    JScrollPane scrollPane = new JScrollPane(SOURCE_CODE_VIEW);
-    scrollPane.setWheelScrollingEnabled(false);
 
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    panel.add(button);
-    panel.add(scrollPane);
+    panel.add(sourceView);
 
-    VARIABLES_VIEW = new TextArea();
-    VARIABLES_VIEW.setEditable(false);
-    panel.add(VARIABLES_VIEW);
+    variableView = new TextArea();
+    variableView.setEditable(false);
 
-    Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
-    JFrame frame = new JFrame("Candidate Generation Visualizer");
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setSize(dimension.width, dimension.height);
-    Invokable onTerminate = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-    frame.getContentPane().add(panel);
-    frame.setVisible(true);
+    JPanel controls = new JPanel();
+    controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
+    JButton resume = new JButton("Resume");
+    resume.setAlignmentX(Component.CENTER_ALIGNMENT);
+    resume.addActionListener(e -> {
+      synchronized (displayLock) {
+        displayLock.notifyAll();
+      }
+    });
+    controls.add(resume);
+    controls.add(new JButton("Step Over"));
+    controls.add(new JButton("Step Into"));
+    controls.add(new JButton("Step Out"));
+    panel.add(controls);
+    panel.add(variableView);
 
-    new Thread(executeDebugger(onTerminate)).start();
+    container.add(panel);
   }
 
-  public static Runnable executeDebugger(Invokable onTerminate) {
+  private static Runnable executeDebugger(Invokable onTerminate) {
     return () -> {
       Debugger debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
@@ -82,7 +99,7 @@ public class ScrabbleViz {
             if (event instanceof ClassPrepareEvent) {
               debugger.setBreakPoints(vm, (ClassPrepareEvent) event);
             } else if (event instanceof ExceptionEvent) {
-              SOURCE_CODE_VIEW.reportException((ExceptionEvent) event);
+              sourceView.reportException((ExceptionEvent) event);
             } else if (event instanceof BreakpointEvent) {
               tryDisplayVariables(debugger, "BREAKPOINT", (LocatableEvent) event);
               debugger.enableStepRequest(vm, (BreakpointEvent) event);
@@ -109,17 +126,17 @@ public class ScrabbleViz {
   }
 
   private static void initializeSourceView() throws IOException {
-    SOURCE_CODE_VIEW = new SourceView();
+    sourceView = new SourceView();
     String raw;
 
     raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java"));
-    SOURCE_CODE_VIEW.addSource(GeneratorTarget.class, raw);
+    sourceView.addSource(GeneratorTarget.class, raw);
 
     File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
     JarFile jarFile = new JarFile(file);
     JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
     raw = inputStreamToString(jarFile.getInputStream(generator));
-    SOURCE_CODE_VIEW.addSource(Generator.class, raw);
+    sourceView.addSource(Generator.class, raw);
   }
 
   private static void tryDisplayVariables(Debugger debugger, String prompt, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
@@ -128,7 +145,7 @@ public class ScrabbleViz {
     if (!debugger.getBreakpointManager().validate(location)) {
       return;
     }
-    SOURCE_CODE_VIEW.highlightLine(toClass(location), location.lineNumber());
+    sourceView.highlightLine(toClass(location), location.lineNumber());
     StringBuilder variables = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
     variables.append(frame.location().toString()).append("\n\n");
@@ -142,14 +159,14 @@ public class ScrabbleViz {
       }
       variables.append(variable.getKey()).append(" = ").append(resolved).append("\n");
     }
-    VARIABLES_VIEW.setText(variables.toString());
-    synchronized (DISPLAY_LOCK) {
+    variableView.setText(variables.toString());
+    synchronized (displayLock) {
       try {
-        DISPLAY_LOCK.wait();
+        displayLock.wait();
       } catch (InterruptedException e) {
         System.exit(0);
       }
-      VARIABLES_VIEW.setText("Running...");
+      variableView.setText("Running...");
     }
   }
 
