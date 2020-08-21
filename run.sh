@@ -2,3 +2,4 @@
 rm *.class
 javac -g -cp ".:../lib/scrabble-base-jar-with-dependencies.jar" *.java
 java CandidateGenerationVisualizer
+#java -cp ".:../lib/scrabble-base-jar-with-dependencies.jar" JDIExampleDebuggee

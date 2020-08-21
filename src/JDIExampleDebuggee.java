@@ -1,23 +1,25 @@
 import com.swilkins.ScrabbleBase.Board.Configuration;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
+import com.swilkins.ScrabbleBase.Board.State.Rack;
+import com.swilkins.ScrabbleBase.Generation.Generator;
+import com.swilkins.ScrabbleBase.Generation.GeneratorResult;
+import com.swilkins.ScrabbleBase.Vocabulary.PermutationTrie;
 
 public class JDIExampleDebuggee {
 
   public static void main(String[] args) {
-    String[][] test = new String[15][15];
-    test[7][7] = "fish";
-    float gleb = 7;
-    int number = 4;
-    String jpda = "Java Platform Debugger Architecture";
-    System.out.println("Hi Everyone, Welcome to " + jpda); // add a break point here
-
-    String jdi = "Java Debug Interface"; // add a break point here and also stepping in here
-    String text = "Today, we'll dive into " + jdi;
-    test[0][0] = "one fish two fish";
-    gleb--;
-    System.out.println(text);
+    Rack rack = new Rack(Configuration.STANDARD_RACK_CAPACITY);
+    rack.addAllFromLetters("ab*e");
     BoardSquare[][] board = Configuration.getStandardBoard();
-    System.out.println(Configuration.serializeBoard(board));
+    board[7][7].setTile(Configuration.getStandardTile('f'));
+    board[7][8].setTile(Configuration.getStandardTile('i'));
+    board[7][9].setTile(Configuration.getStandardTile('s'));
+    board[7][10].setTile(Configuration.getStandardTile('h'));
+    PermutationTrie trie = new PermutationTrie();
+    trie.loadFrom(JDIExampleDebuggee.class.getResource("ospd4.txt"), String::trim);
+    Generator generator = new Generator(trie, Configuration.STANDARD_RACK_CAPACITY);
+    GeneratorResult result = generator.compute(rack, board).orderBy(Generator.getDefaultOrdering());
+    System.out.println(result.get(0));
   }
 
 }
