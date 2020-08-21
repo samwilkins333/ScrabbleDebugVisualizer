@@ -20,7 +20,7 @@ public final class Utilities {
       final StringBuilder out = new StringBuilder();
       Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
       int charsRead;
-      while((charsRead = in.read(buffer, 0, buffer.length)) > 0) {
+      while ((charsRead = in.read(buffer, 0, buffer.length)) > 0) {
         out.append(buffer, 0, charsRead);
       }
       generatorSourceString = out.toString();
@@ -33,7 +33,7 @@ public final class Utilities {
 
   public static Object unpackReference(ThreadReference thread, Value value) {
     if (value instanceof ArrayReference) {
-      ArrayReference arrayReference = (ArrayReference)value;
+      ArrayReference arrayReference = (ArrayReference) value;
       Object[] collector = new Object[arrayReference.length()];
       for (int i = 0; i < arrayReference.length(); i++) {
         collector[i] = (unpackReference(thread, arrayReference.getValue(i)));
@@ -54,7 +54,7 @@ public final class Utilities {
         e.printStackTrace();
       }
     } else if (value instanceof PrimitiveValue) {
-      PrimitiveValue primitiveValue = (PrimitiveValue)value;
+      PrimitiveValue primitiveValue = (PrimitiveValue) value;
       String subType = value.type().name();
       if (subType.equals("char")) {
         return primitiveValue.charValue();
@@ -82,6 +82,10 @@ public final class Utilities {
       }
     }
     return value;
+  }
+
+  public static Class<?> toClass(Location location) throws ClassNotFoundException {
+    return Class.forName(location.toString().split(":")[0]);
   }
 
 }

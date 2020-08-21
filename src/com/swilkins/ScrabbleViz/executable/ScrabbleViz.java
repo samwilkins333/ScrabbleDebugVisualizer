@@ -17,28 +17,31 @@ import java.awt.*;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
 
 public class ScrabbleViz {
   private static SourceCodeView SOURCE_CODE_VIEW;
   private static TextArea VARIABLES_VIEW;
 
-  private Class<?> debugClass;
+  private final Class<?> mainClass;
   private BreakpointManager breakpointManager = new BreakpointManager();
 
-  public void setDebugClass(Class<?> debugClass) {
-    this.debugClass = debugClass;
+  public ScrabbleViz(Class<?> mainClass) {
+    this.mainClass = mainClass;
   }
 
   public VirtualMachine connectAndLaunchVM() throws Exception {
     LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
     Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-    arguments.get("main").setValue(debugClass.getName());
+    arguments.get("main").setValue(mainClass.getName());
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
     return launchingConnector.launch(arguments);
   }
@@ -49,7 +52,7 @@ public class ScrabbleViz {
     JFrame frame = new JFrame("Candidate Generation Visualizer");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
-    frame.setSize(dimension.width,dimension.height);
+    frame.setSize(dimension.width, dimension.height);
     JButton button = new JButton("Continue");
     button.addActionListener(e -> {
       synchronized (LOCK) {
@@ -78,8 +81,7 @@ public class ScrabbleViz {
 
   public static Runnable executeDebugger(JFrame frame) {
     return () -> {
-      ScrabbleViz debugger = new ScrabbleViz();
-      debugger.setDebugClass(GeneratorTarget.class);
+      ScrabbleViz debugger = new ScrabbleViz(GeneratorTarget.class);
       debugger.breakpointManager.register(15, GeneratorTarget.class, 0);
       debugger.breakpointManager.register(114, Generator.class, 0);
       debugger.breakpointManager.register(134, Generator.class, 0);
@@ -94,11 +96,11 @@ public class ScrabbleViz {
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof ClassPrepareEvent) {
-              debugger.setBreakPoints(vm, (ClassPrepareEvent)event);
+              debugger.setBreakPoints(vm, (ClassPrepareEvent) event);
             }
             if (event instanceof LocatableEvent) {
               Location location = ((LocatableEvent) event).location();
-              if (validate(location)) {
+              if (debugger.breakpointManager.validate(location)) {
                 SOURCE_CODE_VIEW.jumpToLine(location.lineNumber());
               }
             }
@@ -107,11 +109,11 @@ public class ScrabbleViz {
             }
             if (event instanceof BreakpointEvent) {
               displayUnpackedVariables("BREAKPOINT", debugger, ((BreakpointEvent) event).thread());
-              debugger.enableStepRequest(vm, (BreakpointEvent)event);
+              debugger.enableStepRequest(vm, (BreakpointEvent) event);
             }
             if (event instanceof StepEvent) {
               Location location = ((StepEvent) event).location();
-              if (validate(location)) {
+              if (debugger.breakpointManager.validate(location)) {
                 displayUnpackedVariables("STEP", debugger, ((StepEvent) event).thread());
               }
             }
@@ -128,15 +130,11 @@ public class ScrabbleViz {
     };
   }
 
-  private static boolean validate(Location location) {
-    return location.toString().startsWith("com.swilkins.ScrabbleBase.Generation.Generator");
-  }
-
   private static void displayUnpackedVariables(
           String prompt,
           ScrabbleViz debugger,
           ThreadReference thread
-  ) throws AbsentInformationException, IncompatibleThreadStateException {
+  ) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     StringBuilder displayText = new StringBuilder(prompt).append("\n");
     StackFrame frame = thread.frame(0);
     displayText.append(frame.location().toString()).append("\n\n");
@@ -176,7 +174,6 @@ public class ScrabbleViz {
       if (breakpointManager.actionFor(lineNumber, clazz) != null) {
         List<Location> possibleLocations = classType.locationsOfLine(lineNumber);
         if (!possibleLocations.isEmpty()) {
-          System.out.printf("Setting breakpoint at %d for %s\n", lineNumber, clazz.getName());
           Location location = possibleLocations.get(0);
           BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
           breakpointRequest.enable();
@@ -185,22 +182,17 @@ public class ScrabbleViz {
     }
   }
 
-  private static String qualifiedName(Location location) {
-    return location.toString().split(":")[0];
-  }
-
   public void enableStepRequest(VirtualMachine vm, BreakpointEvent event) throws ClassNotFoundException {
     Location location = event.location();
-    Class<?> clazz = Class.forName(qualifiedName(location));
     Integer action;
-    if ((action = breakpointManager.actionFor(location.lineNumber(), clazz)) != 0) {
+    if ((action = breakpointManager.actionFor(location.lineNumber(), toClass(location))) != 0) {
       StepRequest request = vm.eventRequestManager().createStepRequest(event.thread(), StepRequest.STEP_LINE, action);
       request.enable();
     }
   }
 
-  public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException {
-    if (validate(frame.location())) {
+  public Map<String, Object> unpackVariables(StackFrame frame, ThreadReference thread) throws AbsentInformationException, ClassNotFoundException {
+    if (breakpointManager.validate(frame.location())) {
       Map<String, Object> unpackedVariables = new HashMap<>();
       for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
         unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));

@@ -40,7 +40,7 @@ public class SourceCodeView extends JTextArea {
       Rectangle2D rect = modelToView2D(getCaretPosition());
       if (rect != null) {
         g.setColor(Color.MAGENTA);
-        g.fillRect(0, (int)rect.getY(), getWidth(), (int)rect.getHeight());
+        g.fillRect(0, (int) rect.getY(), getWidth(), (int) rect.getHeight());
       }
     } catch (BadLocationException e) {
       e.printStackTrace();
@@ -68,15 +68,15 @@ public class SourceCodeView extends JTextArea {
 
     try {
       Rectangle2D r = this.modelToView2D(this.getCaretPosition());
-      JViewport viewport = (JViewport)container;
+      JViewport viewport = (JViewport) container;
       int extentHeight = viewport.getExtentSize().height;
       int viewHeight = viewport.getViewSize().height;
 
-      int y = Math.max(0, (int)r.getY() - ((extentHeight - (int)r.getHeight()) / 2));
+      int y = Math.max(0, (int) r.getY() - ((extentHeight - (int) r.getHeight()) / 2));
       y = Math.min(y, viewHeight - extentHeight);
 
       viewport.setViewPosition(new Point(0, y));
-    }  catch (BadLocationException e) {
+    } catch (BadLocationException e) {
       e.printStackTrace();
     }
   }
