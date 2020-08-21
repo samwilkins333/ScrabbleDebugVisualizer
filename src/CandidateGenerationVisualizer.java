@@ -92,7 +92,6 @@ public class CandidateGenerationVisualizer<T> {
         StepRequest activeStepRequest = null;
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
-            System.out.println(event);
             if (event instanceof ClassPrepareEvent) {
               debuggerInstance.setBreakPoints(vm, (ClassPrepareEvent)event);
             }
@@ -225,9 +224,7 @@ public class CandidateGenerationVisualizer<T> {
         Method toString = ref.referenceType()
                 .methodsByName("toString", "()Ljava/lang/String;").get(0);
         try {
-          System.out.println("OBJECT REF " + thread.isSuspended());
           Value returned = ref.invokeMethod(thread, toString, Collections.emptyList(), 0);
-          System.out.println(returned);
           if (returned instanceof StringReference) {
             return ((StringReference) returned).value();
           }
