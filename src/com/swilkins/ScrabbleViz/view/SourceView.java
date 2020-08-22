@@ -4,25 +4,25 @@ import com.sun.jdi.event.ExceptionEvent;
 import com.swilkins.ScrabbleViz.debug.exception.MissingSourceException;
 
 import javax.swing.*;
-import javax.swing.event.CaretListener;
+import javax.swing.border.EmptyBorder;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
 import java.awt.*;
-import java.awt.event.FocusListener;
-import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
 
-public class SourceView extends JScrollPane {
+public class SourceView extends JPanel {
   private final Map<Class<?>, String> sources = new HashMap<>();
   private final Contents contents;
+  private final JLabel locationLabel = new JLabel(" ");
+  private Class<?> displayedClazz;
 
-  public SourceView(Color fg, Color bg) {
+  public SourceView(Color foreground, Color background, Color highlight) {
     super();
-    contents = new Contents(fg, bg);
+    contents = new Contents(foreground, background, highlight);
     initialize();
   }
 
@@ -33,11 +33,27 @@ public class SourceView extends JScrollPane {
   }
 
   private void initialize() {
-    setViewportView(contents);
-    setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
-    setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    setWheelScrollingEnabled(false);
-    setRowHeaderView(new TextLineNumber(contents));
+    contents.addCaretListener(e -> {
+      String contents = displayedClazz == null
+              ? " "
+              : String.format("%s: %d", displayedClazz.getName(), getContents().getCurrentLineNumber());
+      locationLabel.setText(contents);
+    });
+
+    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+    JPanel header = new JPanel();
+    header.setLayout(new BoxLayout(header, BoxLayout.X_AXIS));
+    header.add(locationLabel);
+    locationLabel.setBorder(new EmptyBorder(5, 0, 5, 0));
+    add(header);
+
+    JScrollPane scrollPane = new JScrollPane(contents);
+    scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+    scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    scrollPane.setWheelScrollingEnabled(false);
+    scrollPane.setRowHeaderView(new TextLineNumber(contents));
+    add(scrollPane);
   }
 
   public Contents getContents() {
@@ -53,6 +69,7 @@ public class SourceView extends JScrollPane {
     if (raw == null) {
       throw new MissingSourceException(clazz);
     }
+    displayedClazz = clazz;
     contents.setText(raw);
 
     Element root = contents.getDocument().getDefaultRootElement();
@@ -86,38 +103,31 @@ public class SourceView extends JScrollPane {
   }
 
   public static class Contents extends JTextArea {
+    private Color highlight = Color.LIGHT_GRAY;
 
     public Contents() {
       super();
       initialize();
     }
 
-    public Contents(Color fg, Color bg) {
+    public Contents(Color foreground, Color background, Color highlight) {
       super();
+      if (highlight != null) {
+        this.highlight = highlight;
+      }
+      if (foreground != null) {
+        setForeground(foreground);
+      }
+      if (background != null) {
+        setBackground(background);
+      }
       initialize();
-      if (fg != null) {
-        setForeground(fg);
-      }
-      if (bg != null) {
-        setBackground(bg);
-      }
     }
 
     private void initialize() {
       setOpaque(false);
-      setRequestFocusEnabled(false);
-      setFocusable(false);
       setEditable(false);
       setHighlighter(null);
-      for (CaretListener listener : getCaretListeners()) {
-        removeCaretListener(listener);
-      }
-      for (MouseListener listener : getMouseListeners()) {
-        removeMouseListener(listener);
-      }
-      for (FocusListener listener : getFocusListeners()) {
-        removeFocusListener(listener);
-      }
     }
 
     @Override
@@ -127,7 +137,7 @@ public class SourceView extends JScrollPane {
       try {
         Rectangle2D rect = modelToView2D(getCaretPosition());
         if (rect != null) {
-          g.setColor(Color.MAGENTA);
+          g.setColor(highlight);
           g.fillRect(0, (int) rect.getY(), getWidth(), (int) rect.getHeight());
         }
       } catch (BadLocationException e) {
@@ -139,6 +149,10 @@ public class SourceView extends JScrollPane {
     @Override
     public void repaint(long tm, int x, int y, int width, int height) {
       super.repaint(tm, 0, 0, getWidth(), getHeight());
+    }
+
+    public int getCurrentLineNumber() {
+      return getDocument().getDefaultRootElement().getElementIndex(getCaretPosition()) + 1;
     }
 
   }

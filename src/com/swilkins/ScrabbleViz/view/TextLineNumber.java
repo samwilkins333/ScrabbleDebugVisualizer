@@ -41,7 +41,6 @@ public class TextLineNumber extends JPanel
   //  Properties that can be changed
   private boolean updateFont;
   private int borderGap;
-  private Color currentLineForeground;
   private float digitAlignment;
   private int minimumDisplayDigits;
 
@@ -76,7 +75,6 @@ public class TextLineNumber extends JPanel
     setFont(component.getFont());
 
     setBorderGap(5);
-    setCurrentLineForeground(Color.MAGENTA);
     setDigitAlignment(RIGHT);
     setMinimumDisplayDigits(minimumDisplayDigits);
 
@@ -127,24 +125,6 @@ public class TextLineNumber extends JPanel
     setBorder(new CompoundBorder(OUTER, inner));
     lastDigits = 0;
     setPreferredWidth();
-  }
-
-  /**
-   * Gets the current line rendering Color
-   *
-   * @return the Color used to render the current line number
-   */
-  public Color getCurrentLineForeground() {
-    return currentLineForeground == null ? getForeground() : currentLineForeground;
-  }
-
-  /**
-   * The Color used to render the current line digits. Default is Coolor.RED.
-   *
-   * @param currentLineForeground the Color used to render the current line
-   */
-  public void setCurrentLineForeground(Color currentLineForeground) {
-    this.currentLineForeground = currentLineForeground;
   }
 
   /**
@@ -233,11 +213,6 @@ public class TextLineNumber extends JPanel
 
     while (rowStartOffset <= endOffset) {
       try {
-        if (isCurrentLine(rowStartOffset))
-          g.setColor(getCurrentLineForeground());
-        else
-          g.setColor(getForeground());
-
         //  Get the line number as a string and then determine the
         //  "X" and "Y" offsets for drawing the string.
         String lineNumber = getTextLineNumber(rowStartOffset);
@@ -252,17 +227,6 @@ public class TextLineNumber extends JPanel
         break;
       }
     }
-  }
-
-  /*
-   *  We need to know if the caret is currently positioned on the line we
-   *  are about to paint so the line number can be highlighted.
-   */
-  private boolean isCurrentLine(int rowStartOffset) {
-    int caretPosition = component.getCaretPosition();
-    Element root = component.getDocument().getDefaultRootElement();
-
-    return root.getElementIndex(rowStartOffset) == root.getElementIndex(caretPosition);
   }
 
   /*

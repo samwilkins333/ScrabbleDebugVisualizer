@@ -7,7 +7,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 
 public final class Utilities {
 
@@ -43,16 +42,7 @@ public final class Utilities {
       return ((StringReference) value).value();
     } else if (value instanceof ObjectReference) {
       ObjectReference ref = (ObjectReference) value;
-      Method toString = ref.referenceType()
-              .methodsByName("toString", "()Ljava/lang/String;").get(0);
-      try {
-        Value returned = ref.invokeMethod(thread, toString, Collections.emptyList(), 0);
-        if (returned instanceof StringReference) {
-          return ((StringReference) returned).value();
-        }
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+      return Unpackers.getFor(ref).unpack(ref, thread);
     } else if (value instanceof PrimitiveValue) {
       PrimitiveValue primitiveValue = (PrimitiveValue) value;
       String subType = value.type().name();

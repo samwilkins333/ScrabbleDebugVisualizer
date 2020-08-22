@@ -10,14 +10,14 @@ import com.swilkins.ScrabbleViz.debug.BreakpointManager;
 import com.swilkins.ScrabbleViz.debug.Debugger;
 import com.swilkins.ScrabbleViz.utility.Invokable;
 import com.swilkins.ScrabbleViz.view.SourceView;
+import com.swilkins.ScrabbleViz.view.WatchView;
 
 import javax.swing.*;
-import java.awt.*;
 import java.awt.EventQueue;
+import java.awt.*;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -27,7 +27,7 @@ import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
 public class ScrabbleViz {
   private static SourceView sourceView;
-  private static TextArea variableView;
+  private static WatchView watchView;
   private static final Class<?> mainClass = GeneratorTarget.class;
 
   private static final Object displayLock = new Object();
@@ -38,55 +38,64 @@ public class ScrabbleViz {
       JFrame frame = new JFrame("Candidate Generation Visualizer");
       frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
       frame.setSize(dimension.width, dimension.height);
-      Invokable onTerminate = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
 
       try {
-        populateChildren(frame.getContentPane());
+        populateChildren(frame, dimension);
       } catch (IOException e) {
         e.printStackTrace();
       }
 
       frame.setVisible(true);
       frame.setResizable(false);
-
-      new Thread(executeDebugger(onTerminate)).start();
     });
   }
 
-  private static void populateChildren(Container container) throws IOException {
+  private static void populateChildren(JFrame frame, Dimension dimension) throws IOException {
     initializeSourceView();
 
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+    Dimension constraints = new Dimension(dimension.width, dimension.height / 3);
+    sourceView.setPreferredSize(constraints);
+    sourceView.setMinimumSize(constraints);
+    sourceView.setMaximumSize(constraints);
+    sourceView.setSize(constraints);
+
     panel.add(sourceView);
 
-    variableView = new TextArea();
-    variableView.setEditable(false);
+    watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
 
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
     JButton resume = new JButton("Resume");
-    resume.setAlignmentX(Component.CENTER_ALIGNMENT);
     resume.addActionListener(e -> {
       synchronized (displayLock) {
         displayLock.notifyAll();
       }
     });
+    JButton start = new JButton("Start");
+    start.addActionListener(e -> {
+      Invokable onTerminated = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+      new Thread(executeDebugger(onTerminated)).start();
+      controls.remove(start);
+      controls.validate();
+    });
+    controls.add(start);
     controls.add(resume);
     controls.add(new JButton("Step Over"));
     controls.add(new JButton("Step Into"));
     controls.add(new JButton("Step Out"));
     panel.add(controls);
-    panel.add(variableView);
+    panel.add(watchView);
 
-    container.add(panel);
+    frame.getContentPane().add(panel);
   }
 
   private static Runnable executeDebugger(Invokable onTerminate) {
     return () -> {
       Debugger debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
-      breakpointManager.register(15, GeneratorTarget.class, 0);
+      breakpointManager.register(17, GeneratorTarget.class, 0);
       breakpointManager.register(114, Generator.class, 0);
       breakpointManager.register(134, Generator.class, 0);
       breakpointManager.register(24, GeneratorTarget.class, 0);
@@ -101,10 +110,10 @@ public class ScrabbleViz {
             } else if (event instanceof ExceptionEvent) {
               sourceView.reportException((ExceptionEvent) event);
             } else if (event instanceof BreakpointEvent) {
-              tryDisplayVariables(debugger, "BREAKPOINT", (LocatableEvent) event);
+              tryDisplayVariables(debugger, (LocatableEvent) event);
               debugger.enableStepRequest(vm, (BreakpointEvent) event);
             } else if (event instanceof StepEvent) {
-              tryDisplayVariables(debugger, "STEP", (LocatableEvent) event);
+              tryDisplayVariables(debugger, (LocatableEvent) event);
             }
             vm.resume();
           }
@@ -126,7 +135,7 @@ public class ScrabbleViz {
   }
 
   private static void initializeSourceView() throws IOException {
-    sourceView = new SourceView();
+    sourceView = new SourceView(null, null, Color.decode("#00FFFF"));
     String raw;
 
     raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java"));
@@ -139,34 +148,22 @@ public class ScrabbleViz {
     sourceView.addSource(Generator.class, raw);
   }
 
-  private static void tryDisplayVariables(Debugger debugger, String prompt, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+  private static void tryDisplayVariables(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+    watchView.setRunning(false);
     ThreadReference thread = event.thread();
     Location location = event.location();
     if (!debugger.getBreakpointManager().validate(location)) {
       return;
     }
     sourceView.highlightLine(toClass(location), location.lineNumber());
-    StringBuilder variables = new StringBuilder(prompt).append("\n");
-    StackFrame frame = thread.frame(0);
-    variables.append(frame.location().toString()).append("\n\n");
-    Map<String, Object> unpackedVariables = debugger.unpackVariables(frame, thread);
-    for (Map.Entry<String, Object> variable : unpackedVariables.entrySet()) {
-      String resolved;
-      if (variable.getValue() instanceof Object[]) {
-        resolved = Arrays.deepToString((Object[]) variable.getValue());
-      } else {
-        resolved = variable.getValue().toString();
-      }
-      variables.append(variable.getKey()).append(" = ").append(resolved).append("\n");
-    }
-    variableView.setText(variables.toString());
+    watchView.updateFrom(debugger.unpackVariables(thread));
     synchronized (displayLock) {
       try {
         displayLock.wait();
       } catch (InterruptedException e) {
         System.exit(0);
       }
-      variableView.setText("Running...");
+      watchView.setRunning(true);
     }
   }
 
