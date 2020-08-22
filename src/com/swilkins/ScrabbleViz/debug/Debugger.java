@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackReference;
 import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
-import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
 
 public class Debugger {
 

@@ -12,7 +12,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.swilkins.ScrabbleViz.utility.Utilities.unpackReference;
+import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackReference;
 
 public class SourceView extends JPanel {
   private final Map<Class<?>, String> sources = new HashMap<>();

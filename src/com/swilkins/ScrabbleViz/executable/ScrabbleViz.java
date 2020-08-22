@@ -95,9 +95,7 @@ public class ScrabbleViz {
     return () -> {
       Debugger debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
-      breakpointManager.register(17, GeneratorTarget.class, 0);
-      breakpointManager.register(114, Generator.class, 0);
-      breakpointManager.register(134, Generator.class, 0);
+      breakpointManager.register(196, Generator.class, 0);
       breakpointManager.register(24, GeneratorTarget.class, 0);
       VirtualMachine vm;
       EventSet eventSet;
@@ -149,7 +147,6 @@ public class ScrabbleViz {
   }
 
   private static void tryDisplayVariables(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
-    watchView.setRunning(false);
     ThreadReference thread = event.thread();
     Location location = event.location();
     if (!debugger.getBreakpointManager().validate(location)) {
@@ -163,7 +160,7 @@ public class ScrabbleViz {
       } catch (InterruptedException e) {
         System.exit(0);
       }
-      watchView.setRunning(true);
+      watchView.clean();
     }
   }
 

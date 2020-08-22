@@ -1,6 +1,7 @@
 package com.swilkins.ScrabbleViz.utility;
 
 import com.sun.jdi.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,52 +31,73 @@ public final class Utilities {
     return generatorSourceString;
   }
 
-  public static Object unpackReference(ThreadReference thread, Value value) {
-    if (value instanceof ArrayReference) {
-      ArrayReference arrayReference = (ArrayReference) value;
-      Object[] collector = new Object[arrayReference.length()];
-      for (int i = 0; i < arrayReference.length(); i++) {
-        collector[i] = (unpackReference(thread, arrayReference.getValue(i)));
-      }
-      return collector;
-    } else if (value instanceof StringReference) {
-      return ((StringReference) value).value();
-    } else if (value instanceof ObjectReference) {
-      ObjectReference ref = (ObjectReference) value;
-      return Unpackers.getFor(ref).unpack(ref, thread);
-    } else if (value instanceof PrimitiveValue) {
-      PrimitiveValue primitiveValue = (PrimitiveValue) value;
-      String subType = value.type().name();
-      if (subType.equals("char")) {
-        return primitiveValue.charValue();
-      }
-      if (subType.equals("boolean")) {
-        return primitiveValue.booleanValue();
-      }
-      if (subType.equals("byte")) {
-        return primitiveValue.byteValue();
-      }
-      if (subType.equals("double")) {
-        return primitiveValue.doubleValue();
-      }
-      if (subType.equals("float")) {
-        return primitiveValue.floatValue();
-      }
-      if (subType.equals("int")) {
-        return primitiveValue.intValue();
-      }
-      if (subType.equals("long")) {
-        return primitiveValue.longValue();
-      }
-      if (subType.equals("short")) {
-        return primitiveValue.shortValue();
-      }
-    }
-    return value;
-  }
-
   public static Class<?> toClass(Location location) throws ClassNotFoundException {
     return Class.forName(location.toString().split(":")[0]);
+  }
+
+  public static IntegerValue toValue(int value) {
+    return new IntegerValue() {
+      @Override
+      public int value() {
+        return value;
+      }
+
+      @Override
+      public boolean booleanValue() {
+        return false;
+      }
+
+      @Override
+      public byte byteValue() {
+        return (byte) value;
+      }
+
+      @Override
+      public char charValue() {
+        return (char) value;
+      }
+
+      @Override
+      public short shortValue() {
+        return (short) value;
+      }
+
+      @Override
+      public int intValue() {
+        return value;
+      }
+
+      @Override
+      public long longValue() {
+        return value;
+      }
+
+      @Override
+      public float floatValue() {
+        return value;
+      }
+
+      @Override
+      public double doubleValue() {
+        return value;
+      }
+
+      @Override
+      public Type type() {
+        return null;
+      }
+
+      @Override
+      public VirtualMachine virtualMachine() {
+        return null;
+      }
+
+      @Override
+      public int compareTo(@NotNull IntegerValue o) {
+        return 0;
+      }
+
+    };
   }
 
 }
