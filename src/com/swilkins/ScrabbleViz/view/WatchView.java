@@ -10,9 +10,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_BOARD_DIMENSIONS;
+import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_RACK_CAPACITY;
 
 public class WatchView extends JPanel {
   private final JLabel[][] cells = new JLabel[STANDARD_BOARD_DIMENSIONS][STANDARD_BOARD_DIMENSIONS];
+  private final JLabel[] rack = new JLabel[STANDARD_RACK_CAPACITY];
 
   private final Map<String, ImageIcon> directionIcons = new HashMap<>();
   private static final int ICON_SIZE = 12;
@@ -59,6 +61,16 @@ public class WatchView extends JPanel {
     padding.setLayout(new BoxLayout(padding, BoxLayout.X_AXIS));
     padding.setPreferredSize(new Dimension(dimension.width * 2, dimension.height));
     padding.setBackground(Color.WHITE);
+
+    JPanel rack = new JPanel();
+    for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
+      JLabel rackTile = new JLabel("");
+      this.rack[i] = rackTile;
+      rackTile.setBorder(new MatteBorder(0, 0, 1, 0, Color.BLACK));
+      rack.add(rackTile);
+    }
+    rack.setLayout(new BoxLayout(rack, BoxLayout.X_AXIS));
+    padding.add(rack);
     add(padding);
   }
 
@@ -69,9 +81,9 @@ public class WatchView extends JPanel {
       for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
         Object[] row = (Object[]) rows[y];
         for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
-          Character playedLetter = (Character) row[x];
-          if (playedLetter != null) {
-            cells[y][x].setText(String.valueOf(playedLetter));
+          Object[] components = (Object[]) row[x];
+          if (components != null) {
+            cells[y][x].setText(tileRepresentation(components));
           }
         }
       }
@@ -88,8 +100,28 @@ public class WatchView extends JPanel {
     for (Object placement : placements) {
       Object[] components = (Object[]) placement;
       currentPlacements.add(components);
-      cells[(int) components[1]][(int) components[0]].setText(components[2].toString());
+      cells[(int) components[1]][(int) components[0]].setText(tileRepresentation((Object[]) components[2]));
     }
+
+    int i = 0;
+    for (Object tile : (Object[]) unpackedVariables.get("rack")) {
+      Object[] components = (Object[]) tile;
+      if (components != null) {
+        rack[i++].setText(tileRepresentation(components));
+      }
+    }
+  }
+
+  private String tileRepresentation(Object[] components) {
+    Character letter = (Character) components[0];
+    Character proxy = (Character) components[1];
+    String display;
+    if (proxy != null) {
+      display = String.format("%s%s", letter, proxy);
+    } else {
+      display = String.valueOf(letter);
+    }
+    return display;
   }
 
   public void clean() {
@@ -97,6 +129,9 @@ public class WatchView extends JPanel {
     currentCell.setIcon(null);
     for (Object[] placement : currentPlacements) {
       cells[(int) placement[1]][(int) placement[0]].setText("");
+    }
+    for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
+      rack[i].setText("");
     }
   }
 

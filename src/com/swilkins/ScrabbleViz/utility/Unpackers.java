@@ -3,6 +3,7 @@ package com.swilkins.ScrabbleViz.utility;
 import com.sun.jdi.*;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
+import com.swilkins.ScrabbleBase.Board.State.Tile;
 import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 
@@ -13,32 +14,44 @@ import java.util.Map;
 
 public class Unpackers {
 
-  private static final Unpacker fallback = (object, thread) -> invoke(object, thread, "toString", "()Ljava/lang/String;");
+  private static final Unpacker toString = (object, thread) -> invoke(object, thread, "toString", "()Ljava/lang/String;");
 
   public static Unpacker getFor(ObjectReference object) {
-    Unpacker existing = agents.get(object.referenceType().name());
-    return existing != null ? existing : fallback;
+    try {
+      Class<?> clazz = Class.forName(object.referenceType().name());
+      while (clazz != Object.class) {
+        Unpacker existing = agents.get(clazz.getName());
+        if (existing != null) {
+          return existing;
+        }
+        clazz = clazz.getSuperclass();
+      }
+    } catch (ClassNotFoundException e) {
+      return toString;
+    }
+    return toString;
   }
 
   private static final Map<String, Unpacker> agents = new HashMap<>();
 
   static {
     Unpacker unpackTileWrapper = (tileWrapper, thread) -> {
-      ObjectReference tileReference = (ObjectReference) invoke(tileWrapper, thread, "getTile", null);
-      if (tileReference == null) {
-        return null;
-      }
-      CharValue letter = (CharValue) invoke(tileReference, thread, "getResolvedLetter", null);
-      assert letter != null;
-      return letter.value();
+      Value tileReference = invoke(tileWrapper, thread, "getTile", null);
+      return unpackReference(thread, tileReference);
     };
     agents.put(BoardSquare.class.getName(), unpackTileWrapper);
     agents.put(Direction.class.getName(), (direction, thread) -> {
       ObjectReference directionNameReference = (ObjectReference) invoke(direction, thread, "name", null);
-      assert directionNameReference != null;
-      StringReference name = (StringReference) invoke(directionNameReference, thread, "toString", null);
-      assert name != null;
-      return name.value();
+      return unpackReference(thread, invoke(directionNameReference, thread, "toString", null));
+    });
+    agents.put(Tile.class.getName(), (tile, thread) -> {
+      Value letter = invoke(tile, thread, "getLetter", null);
+      Value proxy = invoke(tile, thread, "getLetterProxy", null);
+      return new Object[]{unpackReference(thread, letter), unpackReference(thread, proxy)};
+    });
+    agents.put(Character.class.getName(), (character, thread) -> {
+      Value value = invoke(character, thread, "charValue", null);
+      return unpackReference(thread, value);
     });
     agents.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
       int x = getInt(tilePlacement, "getX", thread);
@@ -46,12 +59,11 @@ public class Unpackers {
       return new Object[]{x, y, unpackTileWrapper.unpack(tilePlacement, thread)};
     });
     agents.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> {
-      ObjectReference tilePlacement = (ObjectReference) invoke(crossedTilePlacement, thread, "getRoot", null);
+      Value tilePlacement = invoke(crossedTilePlacement, thread, "getRoot", null);
       return unpackReference(thread, tilePlacement);
     });
     agents.put(LinkedList.class.getName(), (linkedList, thread) -> {
-      ArrayReference asArray = (ArrayReference) invoke(linkedList, thread, "toArray", null);
-      assert asArray != null;
+      Value asArray = invoke(linkedList, thread, "toArray", null);
       return unpackReference(thread, asArray);
     });
   }
