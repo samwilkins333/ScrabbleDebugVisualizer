@@ -22,7 +22,9 @@ public class WatchView extends JPanel {
   private static final int ICON_SIZE = 12;
 
   private JLabel currentCell;
-  private JLabel candidateHeader;
+  private JTabbedPane tabbedPane;
+  private JTextArea rawWatchedName = new JTextArea();
+  private JTextArea rawWatchedValue = new JTextArea();
   private List<Object[]> currentPlacements = new ArrayList<>();
   JTextArea candidates = new JTextArea();
 
@@ -61,36 +63,64 @@ public class WatchView extends JPanel {
     }
 
     add(boardView);
-    JPanel padding = new JPanel();
-    padding.setLayout(new BoxLayout(padding, BoxLayout.X_AXIS));
-    padding.setPreferredSize(new Dimension(dimension.width * 2, dimension.height));
-    padding.setBackground(Color.WHITE);
 
-    candidates.setEditable(false);
-    JScrollPane scrollPane = new JScrollPane(candidates);
-    scrollPane.setPreferredSize(dimension);
-    JViewport viewport = new JViewport();
-    candidateHeader = new JLabel();
-    candidateHeader.setFont(candidateHeader.getFont().deriveFont(Font.BOLD));
-    viewport.add(candidateHeader);
-    scrollPane.setColumnHeader(viewport);
-    scrollPane.setBorder(new EmptyBorder(5, 0, 5, 0));
-    padding.add(scrollPane);
+    tabbedPane = new JTabbedPane();
+    tabbedPane.setPreferredSize(new Dimension(dimension.width * 2, dimension.height));
+
+    JScrollPane scrollPane;
 
     JPanel rack = new JPanel();
+    scrollPane = new JScrollPane(rack);
+    rack.setLayout(new GridLayout(1, STANDARD_RACK_CAPACITY));
+    rack.setBackground(Color.WHITE);
+    rack.setPreferredSize(new Dimension());
     for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
-      JLabel rackTile = new JLabel();
+      JLabel rackTile = new JLabel("", SwingConstants.CENTER);
       this.rack[i] = rackTile;
-      rackTile.setBorder(new MatteBorder(0, 0, 1, 0, Color.BLACK));
+      rackTile.setBackground(Color.WHITE);
       rack.add(rackTile);
     }
-    rack.setLayout(new BoxLayout(rack, BoxLayout.X_AXIS));
-    padding.add(rack);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    tabbedPane.addTab("Rack", scrollPane);
 
-    add(padding);
+    rawWatchedName.setEditable(false);
+    rawWatchedName.setHighlighter(null);
+    rawWatchedName.setBackground(Color.WHITE);
+    rawWatchedValue.setEditable(false);
+    rawWatchedValue.setHighlighter(null);
+    rawWatchedValue.setBackground(Color.WHITE);
+    JPanel rawWatched = new JPanel();
+    rawWatched.setLayout(new GridLayout(1, 2));
+    rawWatched.setBackground(Color.WHITE);
+    rawWatched.add(rawWatchedName);
+    rawWatched.add(rawWatchedValue);
+    scrollPane = new JScrollPane(rawWatched);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    tabbedPane.addTab("Raw", scrollPane);
+
+    candidates.setEditable(false);
+    candidates.setHighlighter(null);
+
+    scrollPane = new JScrollPane(candidates);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    tabbedPane.addTab("Candidates (0)", scrollPane);
+
+    add(tabbedPane);
   }
 
   public void updateFrom(Location location, Map<String, Object> unpackedVariables) throws ClassNotFoundException {
+    StringBuilder rawNameBuilder = new StringBuilder();
+    StringBuilder rawValueBuilder = new StringBuilder();
+
+    List<Map.Entry<String, Object>> variables = new ArrayList<>(unpackedVariables.entrySet());
+    variables.sort(Map.Entry.comparingByKey());
+    for (Map.Entry<String, Object> entry : variables) {
+      rawNameBuilder.append(entry.getKey()).append("\n");
+      rawValueBuilder.append(entry.getValue()).append("\n");
+    }
+    rawWatchedName.setText(rawNameBuilder.toString());
+    rawWatchedValue.setText(rawValueBuilder.toString());
+
     Object board = unpackedVariables.get("board");
     if (board != null) {
       Object[] rows = (Object[]) unpackedVariables.get("board");
@@ -141,7 +171,7 @@ public class WatchView extends JPanel {
     }
 
     Object[] all = (Object[]) unpackedVariables.get("all");
-    candidateHeader.setText(String.format("Candidates: (%d)", all.length));
+    tabbedPane.setTitleAt(2, String.format("Candidates (%d)", all.length));
     StringBuilder builder = new StringBuilder();
     Arrays.sort(all, Comparator.comparingInt(candidate -> ((int) ((Object[]) candidate)[0])).reversed());
     for (Object candidate : all) {

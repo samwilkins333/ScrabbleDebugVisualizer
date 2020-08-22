@@ -55,7 +55,7 @@ public class Unpackers {
     agents.put(Candidate.class.getName(), (candidate, thread) -> {
       int score = getInt(candidate, "getScore", thread);
       Value serialized = invoke(candidate, thread, "toString", null);
-      return new Object[] {score, unpackReference(thread, serialized)};
+      return new Object[]{score, unpackReference(thread, serialized)};
     });
     agents.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
       int x = getInt(tilePlacement, "getX", thread);
