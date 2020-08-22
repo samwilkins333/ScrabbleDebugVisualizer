@@ -88,7 +88,7 @@ public class WatchView extends JPanel {
     for (Object placement : placements) {
       Object[] components = (Object[]) placement;
       currentPlacements.add(components);
-      cells[(int)components[1]][(int)components[0]].setText(components[2].toString());
+      cells[(int) components[1]][(int) components[0]].setText(components[2].toString());
     }
   }
 
@@ -96,7 +96,7 @@ public class WatchView extends JPanel {
     currentCell.setBackground(Color.white);
     currentCell.setIcon(null);
     for (Object[] placement : currentPlacements) {
-      cells[(int)placement[1]][(int)placement[0]].setText("");
+      cells[(int) placement[1]][(int) placement[0]].setText("");
     }
   }
 

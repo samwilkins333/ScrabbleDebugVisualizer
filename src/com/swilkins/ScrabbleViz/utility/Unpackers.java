@@ -6,7 +6,10 @@ import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
 
 public class Unpackers {
 
@@ -21,7 +24,7 @@ public class Unpackers {
 
   static {
     Unpacker unpackTileWrapper = (tileWrapper, thread) -> {
-      ObjectReference tileReference = (ObjectReference) invoke(tileWrapper, thread, "getTile",null);
+      ObjectReference tileReference = (ObjectReference) invoke(tileWrapper, thread, "getTile", null);
       if (tileReference == null) {
         return null;
       }

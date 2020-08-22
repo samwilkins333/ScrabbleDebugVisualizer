@@ -1,6 +1,9 @@
 package com.swilkins.ScrabbleViz.utility;
 
-import com.sun.jdi.*;
+import com.sun.jdi.IntegerValue;
+import com.sun.jdi.Location;
+import com.sun.jdi.Type;
+import com.sun.jdi.VirtualMachine;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
