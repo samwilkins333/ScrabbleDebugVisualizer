@@ -35,7 +35,7 @@ public class ScrabbleViz {
   public static void main(String[] args) {
     EventQueue.invokeLater(() -> {
       Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
-      JFrame frame = new JFrame("Candidate Generation Visualizer");
+      JFrame frame = new JFrame(ScrabbleViz.class.getSimpleName());
       frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
       frame.setSize(dimension.width, dimension.height);
 
@@ -95,6 +95,7 @@ public class ScrabbleViz {
     return () -> {
       Debugger debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
+      breakpointManager.register(22, GeneratorTarget.class, 0);
       breakpointManager.register(196, Generator.class, 0);
       breakpointManager.register(203, Generator.class, 0);
       breakpointManager.register(258, Generator.class, 0);

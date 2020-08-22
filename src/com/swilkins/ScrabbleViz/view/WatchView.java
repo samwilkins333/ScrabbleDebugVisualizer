@@ -1,18 +1,18 @@
 package com.swilkins.ScrabbleViz.view;
 
 import com.sun.jdi.Location;
+import com.swilkins.ScrabbleViz.executable.GeneratorTarget;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_BOARD_DIMENSIONS;
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_RACK_CAPACITY;
+import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
 public class WatchView extends JPanel {
   private final JLabel[][] cells = new JLabel[STANDARD_BOARD_DIMENSIONS][STANDARD_BOARD_DIMENSIONS];
@@ -22,6 +22,7 @@ public class WatchView extends JPanel {
   private static final int ICON_SIZE = 12;
 
   private JLabel currentCell;
+  private JLabel candidateHeader;
   private List<Object[]> currentPlacements = new ArrayList<>();
   JTextArea candidates = new JTextArea();
 
@@ -66,12 +67,19 @@ public class WatchView extends JPanel {
     padding.setBackground(Color.WHITE);
 
     candidates.setEditable(false);
-    candidates.setPreferredSize(dimension);
-    padding.add(candidates);
+    JScrollPane scrollPane = new JScrollPane(candidates);
+    scrollPane.setPreferredSize(dimension);
+    JViewport viewport = new JViewport();
+    candidateHeader = new JLabel();
+    candidateHeader.setFont(candidateHeader.getFont().deriveFont(Font.BOLD));
+    viewport.add(candidateHeader);
+    scrollPane.setColumnHeader(viewport);
+    scrollPane.setBorder(new EmptyBorder(5, 0, 5, 0));
+    padding.add(scrollPane);
 
     JPanel rack = new JPanel();
     for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
-      JLabel rackTile = new JLabel("");
+      JLabel rackTile = new JLabel();
       this.rack[i] = rackTile;
       rackTile.setBorder(new MatteBorder(0, 0, 1, 0, Color.BLACK));
       rack.add(rackTile);
@@ -82,7 +90,7 @@ public class WatchView extends JPanel {
     add(padding);
   }
 
-  public void updateFrom(Location location, Map<String, Object> unpackedVariables) {
+  public void updateFrom(Location location, Map<String, Object> unpackedVariables) throws ClassNotFoundException {
     Object board = unpackedVariables.get("board");
     if (board != null) {
       Object[] rows = (Object[]) unpackedVariables.get("board");
@@ -97,6 +105,10 @@ public class WatchView extends JPanel {
           }
         }
       }
+    }
+
+    if (toClass(location).equals(GeneratorTarget.class)) {
+      return;
     }
 
     int x = (int) unpackedVariables.get("x");
@@ -114,6 +126,9 @@ public class WatchView extends JPanel {
       cell.setText(tileRepresentation((Object[]) components[2]));
       if (location.lineNumber() == 203) {
         cell.setBackground(Color.GREEN);
+        if (cell.equals(currentCell)) {
+          cell.setIcon(null);
+        }
       }
     }
 
@@ -125,9 +140,12 @@ public class WatchView extends JPanel {
       }
     }
 
-    StringBuilder builder = new StringBuilder("Candidates:\n");
-    for (Object candidate : (Object[]) unpackedVariables.get("all")) {
-      builder.append(candidate).append("\n");
+    Object[] all = (Object[]) unpackedVariables.get("all");
+    candidateHeader.setText(String.format("Candidates: (%d)", all.length));
+    StringBuilder builder = new StringBuilder();
+    Arrays.sort(all, Comparator.comparingInt(candidate -> ((int) ((Object[]) candidate)[0])).reversed());
+    for (Object candidate : all) {
+      builder.append(((Object[]) candidate)[1]).append("\n");
     }
     candidates.setText(builder.toString());
   }
@@ -145,8 +163,10 @@ public class WatchView extends JPanel {
   }
 
   public void clean() {
-    currentCell.setBackground(Color.white);
-    currentCell.setIcon(null);
+    if (currentCell != null) {
+      currentCell.setBackground(Color.white);
+      currentCell.setIcon(null);
+    }
     for (Object[] placement : currentPlacements) {
       JLabel cell = cells[(int) placement[1]][(int) placement[0]];
       cell.setText("");

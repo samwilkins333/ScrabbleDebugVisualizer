@@ -4,6 +4,7 @@ import com.sun.jdi.*;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Tile;
+import com.swilkins.ScrabbleBase.Generation.Candidate;
 import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 
@@ -11,7 +12,8 @@ import java.util.*;
 
 public class Unpackers {
 
-  private static final Unpacker toString = (object, thread) -> invoke(object, thread, "toString", "()Ljava/lang/String;");
+  private static final Unpacker toString = (object, thread) ->
+          unpackReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
 
   public static Unpacker getFor(ObjectReference object) {
     try {
@@ -50,6 +52,11 @@ public class Unpackers {
       Value value = invoke(character, thread, "charValue", null);
       return unpackReference(thread, value);
     });
+    agents.put(Candidate.class.getName(), (candidate, thread) -> {
+      int score = getInt(candidate, "getScore", thread);
+      Value serialized = invoke(candidate, thread, "toString", null);
+      return new Object[] {score, unpackReference(thread, serialized)};
+    });
     agents.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
       int x = getInt(tilePlacement, "getX", thread);
       int y = getInt(tilePlacement, "getY", thread);
@@ -87,6 +94,9 @@ public class Unpackers {
   }
 
   public static Object unpackReference(ThreadReference thread, Value value) {
+    if (value instanceof ObjectReference) {
+      ((ObjectReference) value).disableCollection();
+    }
     if (value instanceof ArrayReference) {
       ArrayReference arrayReference = (ArrayReference) value;
       Object[] collector = new Object[arrayReference.length()];
