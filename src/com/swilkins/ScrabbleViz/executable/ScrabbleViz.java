@@ -13,6 +13,7 @@ import com.swilkins.ScrabbleViz.view.SourceView;
 import com.swilkins.ScrabbleViz.view.WatchView;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.EventQueue;
 import java.awt.*;
 import java.awt.event.WindowEvent;
@@ -54,41 +55,39 @@ public class ScrabbleViz {
     initializeSourceView();
 
     JPanel panel = new JPanel();
+    panel.setBackground(Color.WHITE);
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    Dimension constraints = new Dimension(dimension.width, dimension.height / 3);
-    sourceView.setPreferredSize(constraints);
-    sourceView.setMinimumSize(constraints);
-    sourceView.setMaximumSize(constraints);
-    sourceView.setSize(constraints);
-
-    panel.add(sourceView);
-
-    watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
 
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
+    controls.setBackground(Color.WHITE);
+    controls.setBorder(new EmptyBorder(10, 10, 10, 10));
     JButton resume = new JButton("Resume");
     resume.addActionListener(e -> {
       synchronized (displayLock) {
         displayLock.notifyAll();
       }
     });
-    JButton start = new JButton("Start");
-    start.addActionListener(e -> {
-      Invokable onTerminated = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-      new Thread(executeDebugger(onTerminated)).start();
-      controls.remove(start);
-      controls.validate();
-    });
-    controls.add(start);
     controls.add(resume);
     controls.add(new JButton("Step Over"));
     controls.add(new JButton("Step Into"));
     controls.add(new JButton("Step Out"));
     panel.add(controls);
+
+    Dimension constraints = new Dimension(dimension.width, dimension.height / 3);
+    sourceView.setPreferredSize(constraints);
+    sourceView.setMinimumSize(constraints);
+    sourceView.setMaximumSize(constraints);
+    sourceView.setSize(constraints);
+    panel.add(sourceView);
+
+    watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
     panel.add(watchView);
 
     frame.getContentPane().add(panel);
+
+    Invokable onTerminated = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+    new Thread(executeDebugger(onTerminated)).start();
   }
 
   private static Runnable executeDebugger(Invokable onTerminate) {

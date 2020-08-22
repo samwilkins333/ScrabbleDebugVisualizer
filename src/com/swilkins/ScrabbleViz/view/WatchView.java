@@ -45,10 +45,10 @@ public class WatchView extends JPanel {
 
     setBackground(Color.WHITE);
     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+    setBorder(new EmptyBorder(10, 10, 10, 10));
     JPanel boardView = new JPanel(new GridLayout(STANDARD_BOARD_DIMENSIONS, STANDARD_BOARD_DIMENSIONS, 0, 0));
     boardView.setBackground(Color.WHITE);
     boardView.setPreferredSize(dimension);
-    boardView.setBorder(new EmptyBorder(0, 5, 0, 5));
     for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
       for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
         JLabel cell = new JLabel("", SwingConstants.CENTER);
