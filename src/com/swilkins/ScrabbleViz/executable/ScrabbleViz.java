@@ -96,6 +96,7 @@ public class ScrabbleViz {
       Debugger debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
       breakpointManager.register(196, Generator.class, 0);
+      breakpointManager.register(203, Generator.class, 0);
       breakpointManager.register(258, Generator.class, 0);
       breakpointManager.register(24, GeneratorTarget.class, 0);
       VirtualMachine vm;
@@ -154,7 +155,7 @@ public class ScrabbleViz {
       return;
     }
     sourceView.highlightLine(toClass(location), location.lineNumber());
-    watchView.updateFrom(debugger.unpackVariables(thread));
+    watchView.updateFrom(location, debugger.unpackVariables(thread));
     synchronized (displayLock) {
       try {
         displayLock.wait();

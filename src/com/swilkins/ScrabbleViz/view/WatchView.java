@@ -1,5 +1,7 @@
 package com.swilkins.ScrabbleViz.view;
 
+import com.sun.jdi.Location;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
@@ -21,6 +23,7 @@ public class WatchView extends JPanel {
 
   private JLabel currentCell;
   private List<Object[]> currentPlacements = new ArrayList<>();
+  JTextArea candidates = new JTextArea();
 
   private void create(String name) {
     ImageIcon icon = new ImageIcon(WatchView.class.getResource(String.format("../resource/icons/%s.png", name)));
@@ -62,6 +65,10 @@ public class WatchView extends JPanel {
     padding.setPreferredSize(new Dimension(dimension.width * 2, dimension.height));
     padding.setBackground(Color.WHITE);
 
+    candidates.setEditable(false);
+    candidates.setPreferredSize(dimension);
+    padding.add(candidates);
+
     JPanel rack = new JPanel();
     for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
       JLabel rackTile = new JLabel("");
@@ -71,10 +78,11 @@ public class WatchView extends JPanel {
     }
     rack.setLayout(new BoxLayout(rack, BoxLayout.X_AXIS));
     padding.add(rack);
+
     add(padding);
   }
 
-  public void updateFrom(Map<String, Object> unpackedVariables) {
+  public void updateFrom(Location location, Map<String, Object> unpackedVariables) {
     Object board = unpackedVariables.get("board");
     if (board != null) {
       Object[] rows = (Object[]) unpackedVariables.get("board");
@@ -83,7 +91,9 @@ public class WatchView extends JPanel {
         for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
           Object[] components = (Object[]) row[x];
           if (components != null) {
-            cells[y][x].setText(tileRepresentation(components));
+            JLabel target = cells[y][x];
+            target.setText(tileRepresentation(components));
+            target.setBackground(Color.LIGHT_GRAY);
           }
         }
       }
@@ -100,7 +110,11 @@ public class WatchView extends JPanel {
     for (Object placement : placements) {
       Object[] components = (Object[]) placement;
       currentPlacements.add(components);
-      cells[(int) components[1]][(int) components[0]].setText(tileRepresentation((Object[]) components[2]));
+      JLabel cell = cells[(int) components[1]][(int) components[0]];
+      cell.setText(tileRepresentation((Object[]) components[2]));
+      if (location.lineNumber() == 203) {
+        cell.setBackground(Color.GREEN);
+      }
     }
 
     int i = 0;
@@ -110,6 +124,12 @@ public class WatchView extends JPanel {
         rack[i++].setText(tileRepresentation(components));
       }
     }
+
+    StringBuilder builder = new StringBuilder("Candidates:\n");
+    for (Object candidate : (Object[]) unpackedVariables.get("all")) {
+      builder.append(candidate).append("\n");
+    }
+    candidates.setText(builder.toString());
   }
 
   private String tileRepresentation(Object[] components) {
@@ -128,7 +148,9 @@ public class WatchView extends JPanel {
     currentCell.setBackground(Color.white);
     currentCell.setIcon(null);
     for (Object[] placement : currentPlacements) {
-      cells[(int) placement[1]][(int) placement[0]].setText("");
+      JLabel cell = cells[(int) placement[1]][(int) placement[0]];
+      cell.setText("");
+      cell.setBackground(Color.WHITE);
     }
     for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
       rack[i].setText("");

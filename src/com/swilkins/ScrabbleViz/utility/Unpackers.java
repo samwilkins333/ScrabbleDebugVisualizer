@@ -7,10 +7,7 @@ import com.swilkins.ScrabbleBase.Board.State.Tile;
 import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 
 public class Unpackers {
 
@@ -62,10 +59,12 @@ public class Unpackers {
       Value tilePlacement = invoke(crossedTilePlacement, thread, "getRoot", null);
       return unpackReference(thread, tilePlacement);
     });
-    agents.put(LinkedList.class.getName(), (linkedList, thread) -> {
-      Value asArray = invoke(linkedList, thread, "toArray", null);
+    Unpacker unpackArrayable = (arrayable, thread) -> {
+      Value asArray = invoke(arrayable, thread, "toArray", null);
       return unpackReference(thread, asArray);
-    });
+    };
+    agents.put(HashSet.class.getName(), unpackArrayable);
+    agents.put(LinkedList.class.getName(), unpackArrayable);
   }
 
   private static int getInt(ObjectReference object, String accessor, ThreadReference thread) {
