@@ -73,14 +73,6 @@ public class ScrabbleViz {
         displayLock.notifyAll();
       }
     });
-    JButton start = new JButton("Start");
-    start.addActionListener(e -> {
-      Invokable onTerminated = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-      new Thread(executeDebugger(onTerminated)).start();
-      controls.remove(start);
-      controls.validate();
-    });
-    controls.add(start);
     controls.add(resume);
     controls.add(new JButton("Step Over"));
     controls.add(new JButton("Step Into"));
@@ -89,6 +81,8 @@ public class ScrabbleViz {
     panel.add(watchView);
 
     frame.getContentPane().add(panel);
+    Invokable onTerminated = () -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+    new Thread(executeDebugger(onTerminated)).start();
   }
 
   private static Runnable executeDebugger(Invokable onTerminate) {
