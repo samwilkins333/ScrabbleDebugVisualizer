@@ -22,7 +22,6 @@ public class Debugger {
   }
 
   public void submitClassPrepareRequests(VirtualMachine vm) {
-    enableExceptionRequest(vm);
     for (String className : breakpointManager.getClassNames()) {
       enableClassPrepareRequest(vm, className);
     }

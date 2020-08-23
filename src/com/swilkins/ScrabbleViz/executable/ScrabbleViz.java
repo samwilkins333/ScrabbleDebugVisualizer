@@ -109,7 +109,7 @@ public class ScrabbleViz {
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
       Class<?> clazz = sourceView.getDisplayedClass();
       int lineNumber = sourceView.getDisplayedLineNumber();
-      if (breakpointManager.validate(clazz, lineNumber)) {
+      if (breakpointManager.contains(clazz, lineNumber)) {
         vm.eventRequestManager().deleteEventRequest(breakpointManager.removeBreakpointAt(clazz, lineNumber).getRequest());
       } else {
         breakpointManager.createBreakpointAt(clazz, lineNumber, "Created at runtime.");
@@ -163,6 +163,7 @@ public class ScrabbleViz {
       EventSet eventSet;
       try {
         debugger.submitClassPrepareRequests(vm = connectAndLaunchVM());
+        debugger.enableExceptionRequest(vm);
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof LocatableEvent) {
@@ -176,7 +177,7 @@ public class ScrabbleViz {
               deleteActiveStepRequest();
               visit(debugger, (LocatableEvent) event);
             } else if (event instanceof StepEvent) {
-              if (debugger.getBreakpointManager().validate(((StepEvent) event).location())) {
+              if (debugger.getBreakpointManager().contains(((StepEvent) event).location())) {
                 synchronized (stepRequestLock) {
                   if (activeStepRequest.depth() == 1) {
                     deleteActiveStepRequest();
@@ -221,7 +222,7 @@ public class ScrabbleViz {
   private static void visit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
-    if (!debugger.getBreakpointManager().validate(location)) {
+    if (!debugger.getBreakpointManager().contains(location)) {
       return;
     }
     sourceView.setDisplayedClass(toClass(location));

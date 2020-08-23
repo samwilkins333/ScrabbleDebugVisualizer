@@ -64,11 +64,11 @@ public class BreakpointManager extends HashMap<Class<?>, Map<Integer, Breakpoint
     return null;
   }
 
-  public boolean validate(Location location) {
+  public boolean contains(Location location) {
     return classNames.contains(location.toString().split(":")[0]);
   }
 
-  public boolean validate(Class<?> clazz, int lineNumber) {
+  public boolean contains(Class<?> clazz, int lineNumber) {
     return getBreakpointAt(clazz, lineNumber) != null;
   }
 
