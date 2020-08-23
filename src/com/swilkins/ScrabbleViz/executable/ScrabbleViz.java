@@ -5,8 +5,10 @@ import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.*;
+import com.sun.jdi.request.StepRequest;
 import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleViz.debug.BreakpointManager;
+import com.swilkins.ScrabbleViz.debug.BreakpointManager.Breakpoint;
 import com.swilkins.ScrabbleViz.debug.Debugger;
 import com.swilkins.ScrabbleViz.utility.Invokable;
 import com.swilkins.ScrabbleViz.view.SourceView;
@@ -30,7 +32,13 @@ public class ScrabbleViz {
   private static WatchView watchView;
   private static final Class<?> mainClass = GeneratorTarget.class;
 
-  private static final Object displayLock = new Object();
+  private static VirtualMachine vm;
+  private static Debugger debugger;
+  private static ThreadReference threadReference;
+  private static StepRequest activeStepRequest;
+
+  private static final Object suspensionLock = new Object();
+  private static final Object stepRequestLock = new Object();
 
   public static void main(String[] args) {
     EventQueue.invokeLater(() -> {
@@ -65,18 +73,35 @@ public class ScrabbleViz {
 
     watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
 
+    sourceView.addLocationChangedListener((clazz, lineNumber) -> {
+      Breakpoint breakpoint = debugger.getBreakpointManager().getBreakpointAt(clazz, lineNumber);
+      String annotation = breakpoint != null ? breakpoint.getAnnotation() : "No breakpoint.";
+      watchView.setAnnotation(annotation != null ? annotation : "No annotation provided.");
+    });
+
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
     JButton resume = new JButton("Resume");
     resume.addActionListener(e -> {
-      synchronized (displayLock) {
-        displayLock.notifyAll();
-      }
+      deleteActiveStepRequest();
+      signalDebugger();
     });
     controls.add(resume);
-    controls.add(new JButton("Step Over"));
-    controls.add(new JButton("Step Into"));
-    controls.add(new JButton("Step Out"));
+
+    JButton stepButton;
+
+    stepButton = new JButton("Step Over");
+    stepButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OVER));
+    controls.add(stepButton);
+
+    stepButton = new JButton("Step Into");
+    stepButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_INTO));
+    controls.add(stepButton);
+
+    stepButton = new JButton("Step Out");
+    stepButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OUT));
+    controls.add(stepButton);
+
     panel.add(controls);
     panel.add(watchView);
 
@@ -85,30 +110,62 @@ public class ScrabbleViz {
     new Thread(executeDebugger(onTerminated)).start();
   }
 
+  private static void activateStepRequest(int stepRequestDepth) {
+    synchronized (stepRequestLock) {
+      if (activeStepRequest == null || activeStepRequest.depth() != stepRequestDepth) {
+        deleteActiveStepRequest();
+        activeStepRequest = vm.eventRequestManager().createStepRequest(threadReference, StepRequest.STEP_LINE, stepRequestDepth);
+        activeStepRequest.enable();
+      }
+    }
+    signalDebugger();
+  }
+
+  private static void deleteActiveStepRequest() {
+    synchronized (stepRequestLock) {
+      if (activeStepRequest != null) {
+        vm.eventRequestManager().deleteEventRequest(activeStepRequest);
+        activeStepRequest = null;
+      }
+    }
+  }
+
+  public static void signalDebugger() {
+    synchronized (suspensionLock) {
+      suspensionLock.notifyAll();
+    }
+  }
+
   private static Runnable executeDebugger(Invokable onTerminate) {
     return () -> {
-      Debugger debugger = new Debugger();
+      debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
-      breakpointManager.register(22, GeneratorTarget.class, 0);
-      breakpointManager.register(196, Generator.class, 0);
-      breakpointManager.register(203, Generator.class, 0);
-      breakpointManager.register(258, Generator.class, 0);
-      breakpointManager.register(24, GeneratorTarget.class, 0);
-      VirtualMachine vm;
+      breakpointManager.setBreakpointAt(GeneratorTarget.class, 22, "Completed preliminary setup.");
+      breakpointManager.setBreakpointAt(Generator.class, 203, "The algorithm found a valid candidate!");
       EventSet eventSet;
       try {
         debugger.prepare(vm = connectAndLaunchVM());
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
+            if (event instanceof LocatableEvent) {
+              threadReference = ((LocatableEvent) event).thread();
+            }
             if (event instanceof ClassPrepareEvent) {
               debugger.setBreakPoints(vm, (ClassPrepareEvent) event);
             } else if (event instanceof ExceptionEvent) {
               sourceView.reportException((ExceptionEvent) event);
             } else if (event instanceof BreakpointEvent) {
-              tryDisplayVariables(debugger, (LocatableEvent) event);
-              debugger.enableStepRequest(vm, (BreakpointEvent) event);
+              deleteActiveStepRequest();
+              visit(debugger, (LocatableEvent) event);
             } else if (event instanceof StepEvent) {
-              tryDisplayVariables(debugger, (LocatableEvent) event);
+              if (debugger.getBreakpointManager().validate(((StepEvent) event).location())) {
+                synchronized (stepRequestLock) {
+                  if (activeStepRequest.depth() == 1) {
+                    deleteActiveStepRequest();
+                  }
+                }
+              }
+              visit(debugger, (LocatableEvent) event);
             }
             vm.resume();
           }
@@ -143,17 +200,18 @@ public class ScrabbleViz {
     sourceView.addSource(Generator.class, raw);
   }
 
-  private static void tryDisplayVariables(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+  private static void visit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
     if (!debugger.getBreakpointManager().validate(location)) {
       return;
     }
-    sourceView.highlightLine(toClass(location), location.lineNumber());
+    sourceView.setSource(toClass(location), debugger.getBreakpointManager());
+    sourceView.setLine(location.lineNumber());
     watchView.updateFrom(location, debugger.unpackVariables(thread));
-    synchronized (displayLock) {
+    synchronized (suspensionLock) {
       try {
-        displayLock.wait();
+        suspensionLock.wait();
       } catch (InterruptedException e) {
         System.exit(0);
       }

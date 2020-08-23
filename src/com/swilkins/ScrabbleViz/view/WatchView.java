@@ -1,7 +1,6 @@
 package com.swilkins.ScrabbleViz.view;
 
 import com.sun.jdi.Location;
-import com.swilkins.ScrabbleViz.executable.GeneratorTarget;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -9,10 +8,10 @@ import javax.swing.border.MatteBorder;
 import java.awt.*;
 import java.util.List;
 import java.util.*;
+import java.util.function.BiConsumer;
 
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_BOARD_DIMENSIONS;
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_RACK_CAPACITY;
-import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
 public class WatchView extends JPanel {
   private final JLabel[][] cells = new JLabel[STANDARD_BOARD_DIMENSIONS][STANDARD_BOARD_DIMENSIONS];
@@ -27,6 +26,7 @@ public class WatchView extends JPanel {
   private JTextArea rawWatchedValue = new JTextArea();
   private List<Object[]> currentPlacements = new ArrayList<>();
   JTextArea candidates = new JTextArea();
+  JTextArea annotation = new JTextArea();
 
   private void create(String name) {
     ImageIcon icon = new ImageIcon(WatchView.class.getResource(String.format("../resource/icons/%s.png", name)));
@@ -37,6 +37,8 @@ public class WatchView extends JPanel {
 
   public WatchView(Dimension dimension) {
     super();
+
+    registerUpdaters();
 
     create("up");
     create("down");
@@ -100,15 +102,83 @@ public class WatchView extends JPanel {
 
     candidates.setEditable(false);
     candidates.setHighlighter(null);
-
     scrollPane = new JScrollPane(candidates);
     scrollPane.setBorder(BorderFactory.createEmptyBorder());
     tabbedPane.addTab("Candidates (0)", scrollPane);
 
+    annotation.setEditable(false);
+    annotation.setHighlighter(null);
+    scrollPane = new JScrollPane(annotation);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder());
+    tabbedPane.addTab("Annotation", scrollPane);
+
     add(tabbedPane);
   }
 
-  public void updateFrom(Location location, Map<String, Object> unpackedVariables) throws ClassNotFoundException {
+  public void setAnnotation(String annotation) {
+    this.annotation.setText(annotation);
+  }
+
+  private Map<String[], BiConsumer<Location, Iterator<Object>>> updaters = new LinkedHashMap<>();
+
+  private void registerUpdaters() {
+    updaters.put(new String[]{"board"}, (loc, args) -> {
+      Object[] rows = (Object[]) args.next();
+      for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
+        Object[] row = (Object[]) rows[y];
+        for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
+          Object[] components = (Object[]) row[x];
+          if (components != null) {
+            JLabel target = cells[y][x];
+            target.setText(tileRepresentation(components));
+            target.setBackground(Color.LIGHT_GRAY);
+          }
+        }
+      }
+    });
+    updaters.put(new String[]{"y", "x", "dir"}, (loc, args) -> {
+      currentCell = cells[(int) args.next()][(int) args.next()];
+      currentCell.setBackground(Color.YELLOW);
+      currentCell.setIcon(directionIcons.get(args.next().toString()));
+    });
+    updaters.put(new String[]{"placed"}, (loc, args) -> {
+      Object[] placements = (Object[]) args.next();
+      for (Object placement : placements) {
+        Object[] components = (Object[]) placement;
+        currentPlacements.add(components);
+        JLabel cell = cells[(int) components[1]][(int) components[0]];
+        cell.setText(tileRepresentation((Object[]) components[2]));
+        if (loc.lineNumber() == 203) {
+          cell.setBackground(Color.GREEN);
+          if (cell.equals(currentCell)) {
+            cell.setIcon(null);
+          }
+        }
+      }
+    });
+    updaters.put(new String[]{"rack"}, (loc, args) -> {
+      int i = 0;
+      for (Object tile : (Object[]) args.next()) {
+        Object[] components = (Object[]) tile;
+        if (components != null) {
+          rack[i++].setText(tileRepresentation(components));
+        }
+      }
+    });
+    updaters.put(new String[]{"all"}, (loc, args) -> {
+      Object[] all = (Object[]) args.next();
+      tabbedPane.setTitleAt(2, String.format("Candidates (%d)", all.length));
+      StringBuilder builder = new StringBuilder();
+      Arrays.sort(all, Comparator.comparingInt(candidate -> ((int) ((Object[]) candidate)[0])).reversed());
+      for (Object candidate : all) {
+        builder.append(((Object[]) candidate)[1]).append("\n");
+      }
+      candidates.setText(builder.toString());
+    });
+  }
+
+
+  public void updateFrom(Location location, Map<String, Object> unpackedVariables) {
     StringBuilder rawNameBuilder = new StringBuilder();
     StringBuilder rawValueBuilder = new StringBuilder();
 
@@ -121,63 +191,19 @@ public class WatchView extends JPanel {
     rawWatchedName.setText(rawNameBuilder.toString());
     rawWatchedValue.setText(rawValueBuilder.toString());
 
-    Object board = unpackedVariables.get("board");
-    if (board != null) {
-      Object[] rows = (Object[]) unpackedVariables.get("board");
-      for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
-        Object[] row = (Object[]) rows[y];
-        for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
-          Object[] components = (Object[]) row[x];
-          if (components != null) {
-            JLabel target = cells[y][x];
-            target.setText(tileRepresentation(components));
-            target.setBackground(Color.LIGHT_GRAY);
-          }
+    for (Map.Entry<String[], BiConsumer<Location, Iterator<Object>>> entry : updaters.entrySet()) {
+      String[] dependencies = entry.getKey();
+      List<Object> args = new ArrayList<>();
+      for (String dependencyName : entry.getKey()) {
+        Object arg = unpackedVariables.get(dependencyName);
+        if (arg != null) {
+          args.add(arg);
         }
       }
-    }
-
-    if (toClass(location).equals(GeneratorTarget.class)) {
-      return;
-    }
-
-    int x = (int) unpackedVariables.get("x");
-    int y = (int) unpackedVariables.get("y");
-    String direction = (String) unpackedVariables.get("dir");
-    currentCell = cells[y][x];
-    currentCell.setBackground(Color.YELLOW);
-    currentCell.setIcon(directionIcons.get(direction));
-
-    Object[] placements = (Object[]) unpackedVariables.get("placed");
-    for (Object placement : placements) {
-      Object[] components = (Object[]) placement;
-      currentPlacements.add(components);
-      JLabel cell = cells[(int) components[1]][(int) components[0]];
-      cell.setText(tileRepresentation((Object[]) components[2]));
-      if (location.lineNumber() == 203) {
-        cell.setBackground(Color.GREEN);
-        if (cell.equals(currentCell)) {
-          cell.setIcon(null);
-        }
+      if (dependencies.length == args.size()) {
+        entry.getValue().accept(location, args.iterator());
       }
     }
-
-    int i = 0;
-    for (Object tile : (Object[]) unpackedVariables.get("rack")) {
-      Object[] components = (Object[]) tile;
-      if (components != null) {
-        rack[i++].setText(tileRepresentation(components));
-      }
-    }
-
-    Object[] all = (Object[]) unpackedVariables.get("all");
-    tabbedPane.setTitleAt(2, String.format("Candidates (%d)", all.length));
-    StringBuilder builder = new StringBuilder();
-    Arrays.sort(all, Comparator.comparingInt(candidate -> ((int) ((Object[]) candidate)[0])).reversed());
-    for (Object candidate : all) {
-      builder.append(((Object[]) candidate)[1]).append("\n");
-    }
-    candidates.setText(builder.toString());
   }
 
   private String tileRepresentation(Object[] components) {

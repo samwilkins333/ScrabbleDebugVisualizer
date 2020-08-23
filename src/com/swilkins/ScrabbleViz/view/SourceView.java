@@ -1,6 +1,7 @@
 package com.swilkins.ScrabbleViz.view;
 
 import com.sun.jdi.event.ExceptionEvent;
+import com.swilkins.ScrabbleViz.debug.BreakpointManager;
 import com.swilkins.ScrabbleViz.debug.exception.MissingSourceException;
 
 import javax.swing.*;
@@ -9,8 +10,9 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.*;
+import java.util.function.BiConsumer;
 
 import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackReference;
 
@@ -60,18 +62,25 @@ public class SourceView extends JPanel {
     return contents;
   }
 
+  public void addLocationChangedListener(BiConsumer<Class<?>, Integer> handler) {
+    contents.addCaretListener(e -> handler.accept(displayedClazz, contents.getCurrentLineNumber()));
+  }
+
   public void addSource(Class<?> clazz, String raw) {
     sources.put(clazz, raw);
   }
 
-  public void highlightLine(Class<?> clazz, int lineNumber) {
+  public void setSource(Class<?> clazz, BreakpointManager manager) {
     String raw = sources.get(clazz);
     if (raw == null) {
       throw new MissingSourceException(clazz);
     }
     displayedClazz = clazz;
     contents.setText(raw);
+    contents.paintBreakpoints(manager.get(clazz).keySet());
+  }
 
+  public void setLine(int lineNumber) {
     Element root = contents.getDocument().getDefaultRootElement();
     lineNumber = Math.max(lineNumber, 1);
     lineNumber = Math.min(lineNumber, root.getElementCount());
@@ -104,6 +113,7 @@ public class SourceView extends JPanel {
 
   public static class Contents extends JTextArea {
     private Color highlight = Color.LIGHT_GRAY;
+    private List<Rectangle2D> breakpoints = new ArrayList<>();
 
     public Contents() {
       super();
@@ -135,15 +145,19 @@ public class SourceView extends JPanel {
       g.setColor(getBackground());
       g.fillRect(0, 0, getWidth(), getHeight());
       try {
-        Rectangle2D rect = modelToView2D(getCaretPosition());
-        if (rect != null) {
-          g.setColor(highlight);
-          g.fillRect(0, (int) rect.getY(), getWidth(), (int) rect.getHeight());
-        }
+        paintRectangle(g, modelToView2D(getCaretPosition()), highlight);
+        breakpoints.forEach(breakpoint -> paintRectangle(g, breakpoint, Color.RED));
       } catch (BadLocationException e) {
         e.printStackTrace();
       }
       super.paintComponent(g);
+    }
+
+    private void paintRectangle(Graphics g, Rectangle2D rect, Color color) {
+      if (rect != null) {
+        g.setColor(color);
+        g.fillRect(0, (int) rect.getY(), getWidth(), (int) rect.getHeight());
+      }
     }
 
     @Override
@@ -153,6 +167,21 @@ public class SourceView extends JPanel {
 
     public int getCurrentLineNumber() {
       return getDocument().getDefaultRootElement().getElementIndex(getCaretPosition()) + 1;
+    }
+
+    public void paintBreakpoints(Set<Integer> lineNumbers) {
+      breakpoints.clear();
+      for (int lineNumber : lineNumbers) {
+        try {
+          Element element = getDocument().getDefaultRootElement().getElement(lineNumber - 1);
+          if (element == null) {
+            continue;
+          }
+          breakpoints.add(modelToView2D(element.getStartOffset()));
+        } catch (BadLocationException ignored) {
+        }
+      }
+      repaint();
     }
 
   }

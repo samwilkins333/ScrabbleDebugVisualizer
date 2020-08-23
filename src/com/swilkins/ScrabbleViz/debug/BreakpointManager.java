@@ -4,30 +4,58 @@ import com.sun.jdi.Location;
 
 import java.util.*;
 
-import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
+import static com.swilkins.ScrabbleViz.debug.BreakpointManager.Breakpoint;
 
-public class BreakpointManager extends HashMap<Integer, Map<Class<?>, Integer>> {
-  private final Set<Class<?>> classes = new HashSet<>();
+public class BreakpointManager extends HashMap<Class<?>, Map<Integer, Breakpoint>> {
+  private final Set<String> classNames = new HashSet<>();
 
-  public void register(int lineNumber, Class<?> clazz, Integer stepRequestType) {
-    Map<Class<?>, Integer> existing = get(lineNumber);
-    if (existing == null) {
-      put(lineNumber, existing = new HashMap<>());
+  public static class Breakpoint {
+    private final int lineNumber;
+    private final String annotation;
+
+    public Breakpoint(int lineNumber, String annotation) {
+      this.lineNumber = lineNumber;
+      this.annotation = annotation;
     }
-    classes.add(clazz);
-    existing.put(clazz, stepRequestType);
+
+    public int getLineNumber() {
+      return lineNumber;
+    }
+
+    public String getAnnotation() {
+      return annotation;
+    }
+
   }
 
-  public Integer actionFor(int lineNumber, Class<?> clazz) {
-    return get(lineNumber).get(clazz);
+  public void setBreakpointAt(Class<?> clazz, int lineNumber, String annotation) {
+    Map<Integer, Breakpoint> existing = get(clazz);
+    if (existing == null) {
+      existing = new HashMap<>();
+      put(clazz, existing);
+    }
+    existing.put(lineNumber, new Breakpoint(lineNumber, annotation));
+    classNames.add(clazz.getName());
   }
 
-  public boolean validate(Location location) throws ClassNotFoundException {
-    return classes.contains(toClass(location));
+  public Breakpoint getBreakpointAt(Class<?> clazz, int lineNumber) {
+    Map<Integer, Breakpoint> existing = get(clazz);
+    if (existing != null) {
+      return existing.get(lineNumber);
+    }
+    return null;
   }
 
-  public Set<Class<?>> getClasses() {
-    return Collections.unmodifiableSet(classes);
+  public boolean validate(Location location) {
+    return classNames.contains(location.toString().split(":")[0]);
+  }
+
+  public boolean validate(Class<?> clazz, int lineNumber) {
+    return getBreakpointAt(clazz, lineNumber) != null;
+  }
+
+  public Set<String> getClassNames() {
+    return Collections.unmodifiableSet(classNames);
   }
 
 }
