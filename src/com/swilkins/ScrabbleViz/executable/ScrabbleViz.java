@@ -218,10 +218,11 @@ public class ScrabbleViz {
   private static void suspendAndVisit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
-    if (!debugger.getBreakpointManager().contains(location)) {
+    Class<?> clazz = toClass(location);
+    if (!sourceView.hasClass(clazz)) {
       return;
     }
-    sourceView.setDisplayedClass(toClass(location));
+    sourceView.setDisplayedClass(clazz);
     sourceView.setDisplayedLineNumber(location.lineNumber());
     sourceView.setBreakpoints(debugger.getBreakpointManager());
     watchView.updateFrom(location, debugger.unpackVariables(thread));
