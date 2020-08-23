@@ -176,10 +176,10 @@ public class ScrabbleViz {
               sourceView.reportException((ExceptionEvent) event);
             } else if (event instanceof BreakpointEvent) {
               deleteActiveStepRequest();
-              visit(debugger, (LocatableEvent) event);
+              suspendAndVisit(debugger, (LocatableEvent) event);
             } else if (event instanceof StepEvent) {
               if (sourceView.hasClass(toClass(((StepEvent) event).location()))) {
-                visit(debugger, (LocatableEvent) event);
+                suspendAndVisit(debugger, (LocatableEvent) event);
               }
             }
             vm.resume();
@@ -215,7 +215,7 @@ public class ScrabbleViz {
     sourceView.addClass(Generator.class, raw);
   }
 
-  private static void visit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+  private static void suspendAndVisit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
     if (!debugger.getBreakpointManager().contains(location)) {
