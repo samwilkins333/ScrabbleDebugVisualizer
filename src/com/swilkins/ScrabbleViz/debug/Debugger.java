@@ -21,10 +21,10 @@ public class Debugger {
     return breakpointManager;
   }
 
-  public void prepare(VirtualMachine vm) {
+  public void submitClassPrepareRequests(VirtualMachine vm) {
     enableExceptionRequest(vm);
-    for (String clazz : breakpointManager.getClassNames()) {
-      enableClassPrepareRequest(vm, clazz);
+    for (String className : breakpointManager.getClassNames()) {
+      enableClassPrepareRequest(vm, className);
     }
   }
 
@@ -32,9 +32,9 @@ public class Debugger {
     vm.eventRequestManager().createExceptionRequest(null, true, true).enable();
   }
 
-  public void enableClassPrepareRequest(VirtualMachine vm, String clazz) {
+  public void enableClassPrepareRequest(VirtualMachine vm, String className) {
     ClassPrepareRequest classPrepareRequest = vm.eventRequestManager().createClassPrepareRequest();
-    classPrepareRequest.addClassFilter(clazz);
+    classPrepareRequest.addClassFilter(className);
     classPrepareRequest.enable();
   }
 
@@ -47,6 +47,7 @@ public class Debugger {
       if (!possibleLocations.isEmpty()) {
         Location location = possibleLocations.get(0);
         BreakpointRequest breakpointRequest = vm.eventRequestManager().createBreakpointRequest(location);
+        entry.getValue().setRequest(breakpointRequest);
         breakpointRequest.enable();
       } else {
         throw new InvalidBreakpointException(clazz, lineNumber);

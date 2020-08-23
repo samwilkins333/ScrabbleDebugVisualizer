@@ -17,10 +17,12 @@ import java.util.function.BiConsumer;
 import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackReference;
 
 public class SourceView extends JPanel {
-  private final Map<Class<?>, String> sources = new HashMap<>();
+  private final Map<Class<?>, String> classes = new HashMap<>();
   private final Contents contents;
   private final JLabel locationLabel = new JLabel(" ");
   private Class<?> displayedClazz;
+  private int displayedLineNumber;
+  private TextLineNumber lineNumbers;
 
   public SourceView(Color foreground, Color background, Color highlight) {
     super();
@@ -38,7 +40,7 @@ public class SourceView extends JPanel {
     contents.addCaretListener(e -> {
       String contents = displayedClazz == null
               ? " "
-              : String.format("%s: %d", displayedClazz.getName(), getContents().getCurrentLineNumber());
+              : String.format("%s: %d", displayedClazz.getName(), displayedLineNumber = getContents().getCurrentLineNumber());
       locationLabel.setText(contents);
     });
 
@@ -54,7 +56,7 @@ public class SourceView extends JPanel {
     scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
     scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
     scrollPane.setWheelScrollingEnabled(false);
-    scrollPane.setRowHeaderView(new TextLineNumber(contents));
+    scrollPane.setRowHeaderView(lineNumbers = new TextLineNumber(contents));
     add(scrollPane);
   }
 
@@ -66,24 +68,38 @@ public class SourceView extends JPanel {
     contents.addCaretListener(e -> handler.accept(displayedClazz, contents.getCurrentLineNumber()));
   }
 
-  public void addSource(Class<?> clazz, String raw) {
-    sources.put(clazz, raw);
+  public void addClass(Class<?> clazz, String clazzAsString) {
+    classes.put(clazz, clazzAsString);
   }
 
-  public void setSource(Class<?> clazz, BreakpointManager manager) {
-    String raw = sources.get(clazz);
+  public Class<?> getDisplayedClass() {
+    return displayedClazz;
+  }
+
+  public void setDisplayedClass(Class<?> clazz) {
+    String raw = classes.get(clazz);
     if (raw == null) {
       throw new MissingSourceException(clazz);
     }
     displayedClazz = clazz;
     contents.setText(raw);
-    contents.paintBreakpoints(manager.get(clazz).keySet());
   }
 
-  public void setLine(int lineNumber) {
+  public void setBreakpoints(BreakpointManager manager) {
+    Set<Integer> breakpointLines = manager.get(displayedClazz).keySet();
+    contents.setBreakpoints(breakpointLines);
+    lineNumbers.setBreakpoints(breakpointLines);
+  }
+
+  public int getDisplayedLineNumber() {
+    return displayedLineNumber;
+  }
+
+  public void setDisplayedLineNumber(int lineNumber) {
     Element root = contents.getDocument().getDefaultRootElement();
     lineNumber = Math.max(lineNumber, 1);
     lineNumber = Math.min(lineNumber, root.getElementCount());
+    this.displayedLineNumber = lineNumber;
     int startOfLineOffset = root.getElement(lineNumber - 1).getStartOffset();
     contents.setCaretPosition(startOfLineOffset);
 
@@ -145,8 +161,8 @@ public class SourceView extends JPanel {
       g.setColor(getBackground());
       g.fillRect(0, 0, getWidth(), getHeight());
       try {
-        paintRectangle(g, modelToView2D(getCaretPosition()), highlight);
         breakpoints.forEach(breakpoint -> paintRectangle(g, breakpoint, Color.RED));
+        paintRectangle(g, modelToView2D(getCaretPosition()), highlight);
       } catch (BadLocationException e) {
         e.printStackTrace();
       }
@@ -169,7 +185,7 @@ public class SourceView extends JPanel {
       return getDocument().getDefaultRootElement().getElementIndex(getCaretPosition()) + 1;
     }
 
-    public void paintBreakpoints(Set<Integer> lineNumbers) {
+    public void setBreakpoints(Set<Integer> lineNumbers) {
       breakpoints.clear();
       for (int lineNumber : lineNumbers) {
         try {

@@ -58,6 +58,12 @@ public class ScrabbleViz {
     });
   }
 
+  private static void updateAnnotation(Class<?> clazz, int lineNumber) {
+    Breakpoint breakpoint = debugger.getBreakpointManager().getBreakpointAt(clazz, lineNumber);
+    String annotation = breakpoint != null ? breakpoint.getAnnotation() : "No breakpoint.";
+    watchView.setAnnotation(annotation != null ? annotation : "No annotation provided.");
+  }
+
   private static void populateChildren(JFrame frame, Dimension dimension) throws IOException {
     initializeSourceView();
 
@@ -73,11 +79,7 @@ public class ScrabbleViz {
 
     watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
 
-    sourceView.addLocationChangedListener((clazz, lineNumber) -> {
-      Breakpoint breakpoint = debugger.getBreakpointManager().getBreakpointAt(clazz, lineNumber);
-      String annotation = breakpoint != null ? breakpoint.getAnnotation() : "No breakpoint.";
-      watchView.setAnnotation(annotation != null ? annotation : "No annotation provided.");
-    });
+    sourceView.addLocationChangedListener(ScrabbleViz::updateAnnotation);
 
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
@@ -88,19 +90,35 @@ public class ScrabbleViz {
     });
     controls.add(resume);
 
-    JButton stepButton;
+    JButton controlButton;
 
-    stepButton = new JButton("Step Over");
-    stepButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OVER));
-    controls.add(stepButton);
+    controlButton = new JButton("Step Over");
+    controlButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OVER));
+    controls.add(controlButton);
 
-    stepButton = new JButton("Step Into");
-    stepButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_INTO));
-    controls.add(stepButton);
+    controlButton = new JButton("Step Into");
+    controlButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_INTO));
+    controls.add(controlButton);
 
-    stepButton = new JButton("Step Out");
-    stepButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OUT));
-    controls.add(stepButton);
+    controlButton = new JButton("Step Out");
+    controlButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OUT));
+    controls.add(controlButton);
+
+    controlButton = new JButton("Toggle Breakpoint");
+    controlButton.addActionListener(e -> {
+      BreakpointManager breakpointManager = debugger.getBreakpointManager();
+      Class<?> clazz = sourceView.getDisplayedClass();
+      int lineNumber = sourceView.getDisplayedLineNumber();
+      if (breakpointManager.validate(clazz, lineNumber)) {
+        vm.eventRequestManager().deleteEventRequest(breakpointManager.removeBreakpointAt(clazz, lineNumber).getRequest());
+      } else {
+        breakpointManager.createBreakpointAt(clazz, lineNumber, "Created at runtime.");
+      }
+      debugger.submitClassPrepareRequests(vm);
+      sourceView.setBreakpoints(debugger.getBreakpointManager());
+      updateAnnotation(clazz, lineNumber);
+    });
+    controls.add(controlButton);
 
     panel.add(controls);
     panel.add(watchView);
@@ -140,11 +158,11 @@ public class ScrabbleViz {
     return () -> {
       debugger = new Debugger();
       BreakpointManager breakpointManager = debugger.getBreakpointManager();
-      breakpointManager.setBreakpointAt(GeneratorTarget.class, 22, "Completed preliminary setup.");
-      breakpointManager.setBreakpointAt(Generator.class, 203, "The algorithm found a valid candidate!");
+      breakpointManager.createBreakpointAt(GeneratorTarget.class, 22, "Completed preliminary setup.");
+      breakpointManager.createBreakpointAt(Generator.class, 203, "The algorithm found a valid candidate!");
       EventSet eventSet;
       try {
-        debugger.prepare(vm = connectAndLaunchVM());
+        debugger.submitClassPrepareRequests(vm = connectAndLaunchVM());
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof LocatableEvent) {
@@ -191,13 +209,13 @@ public class ScrabbleViz {
     String raw;
 
     raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java"));
-    sourceView.addSource(GeneratorTarget.class, raw);
+    sourceView.addClass(GeneratorTarget.class, raw);
 
     File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
     JarFile jarFile = new JarFile(file);
     JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
     raw = inputStreamToString(jarFile.getInputStream(generator));
-    sourceView.addSource(Generator.class, raw);
+    sourceView.addClass(Generator.class, raw);
   }
 
   private static void visit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
@@ -206,8 +224,9 @@ public class ScrabbleViz {
     if (!debugger.getBreakpointManager().validate(location)) {
       return;
     }
-    sourceView.setSource(toClass(location), debugger.getBreakpointManager());
-    sourceView.setLine(location.lineNumber());
+    sourceView.setDisplayedClass(toClass(location));
+    sourceView.setDisplayedLineNumber(location.lineNumber());
+    sourceView.setBreakpoints(debugger.getBreakpointManager());
     watchView.updateFrom(location, debugger.unpackVariables(thread));
     synchronized (suspensionLock) {
       try {

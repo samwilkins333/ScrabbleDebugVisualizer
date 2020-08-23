@@ -15,6 +15,7 @@ import java.awt.geom.Rectangle2D;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.HashMap;
+import java.util.Set;
 
 /**
  * This class will display line numbers for a related text component. The text
@@ -49,6 +50,8 @@ public class TextLineNumber extends JPanel
   private int lastDigits;
   private int lastHeight;
   private int lastLine;
+
+  private Set<Integer> breakpoints;
 
   private HashMap<String, FontMetrics> fonts;
 
@@ -90,6 +93,11 @@ public class TextLineNumber extends JPanel
    */
   public boolean getUpdateFont() {
     return updateFont;
+  }
+
+  public void setBreakpoints(Set<Integer> breakpoints) {
+    this.breakpoints = breakpoints;
+    repaint();
   }
 
   /**
@@ -211,15 +219,21 @@ public class TextLineNumber extends JPanel
     int rowStartOffset = component.viewToModel2D(new Point(0, clip.y));
     int endOffset = component.viewToModel2D(new Point(0, clip.y + clip.height));
 
+    Element root = component.getDocument().getDefaultRootElement();
     while (rowStartOffset <= endOffset) {
       try {
         //  Get the line number as a string and then determine the
         //  "X" and "Y" offsets for drawing the string.
-        String lineNumber = getTextLineNumber(rowStartOffset);
-        int stringWidth = fontMetrics.stringWidth(lineNumber);
+        int index = root.getElementIndex(rowStartOffset);
+        int lineNumber = index + 1;
+        Element line = root.getElement(index);
+        String stringLineNumber = line.getStartOffset() == rowStartOffset ? String.valueOf(lineNumber) : "";
+
+        int stringWidth = fontMetrics.stringWidth(stringLineNumber);
         int x = getOffsetX(availableWidth, stringWidth) + insets.left;
         int y = getOffsetY(rowStartOffset, fontMetrics);
-        g.drawString(lineNumber, x, y);
+        g.setColor(breakpoints.contains(lineNumber) ? Color.RED : Color.BLACK);
+        g.drawString(stringLineNumber, x, y);
 
         //  Move to the next row
         rowStartOffset = Utilities.getRowEnd(component, rowStartOffset) + 1;
@@ -227,18 +241,6 @@ public class TextLineNumber extends JPanel
         break;
       }
     }
-  }
-
-  /*
-   *	Get the line number to be drawn. The empty string will be returned
-   *  when a line of text has wrapped.
-   */
-  protected String getTextLineNumber(int rowStartOffset) {
-    Element root = component.getDocument().getDefaultRootElement();
-    int index = root.getElementIndex(rowStartOffset);
-    Element line = root.getElement(index);
-
-    return line.getStartOffset() == rowStartOffset ? String.valueOf(index + 1) : "";
   }
 
   /*

@@ -1,6 +1,7 @@
 package com.swilkins.ScrabbleViz.debug;
 
 import com.sun.jdi.Location;
+import com.sun.jdi.request.BreakpointRequest;
 
 import java.util.*;
 
@@ -12,6 +13,7 @@ public class BreakpointManager extends HashMap<Class<?>, Map<Integer, Breakpoint
   public static class Breakpoint {
     private final int lineNumber;
     private final String annotation;
+    private BreakpointRequest request;
 
     public Breakpoint(int lineNumber, String annotation) {
       this.lineNumber = lineNumber;
@@ -26,9 +28,17 @@ public class BreakpointManager extends HashMap<Class<?>, Map<Integer, Breakpoint
       return annotation;
     }
 
+    public BreakpointRequest getRequest() {
+      return request;
+    }
+
+    public void setRequest(BreakpointRequest request) {
+      this.request = request;
+    }
+
   }
 
-  public void setBreakpointAt(Class<?> clazz, int lineNumber, String annotation) {
+  public void createBreakpointAt(Class<?> clazz, int lineNumber, String annotation) {
     Map<Integer, Breakpoint> existing = get(clazz);
     if (existing == null) {
       existing = new HashMap<>();
@@ -46,6 +56,14 @@ public class BreakpointManager extends HashMap<Class<?>, Map<Integer, Breakpoint
     return null;
   }
 
+  public Breakpoint removeBreakpointAt(Class<?> clazz, int lineNumber) {
+    Map<Integer, Breakpoint> existing = get(clazz);
+    if (existing != null) {
+      return existing.remove(lineNumber);
+    }
+    return null;
+  }
+
   public boolean validate(Location location) {
     return classNames.contains(location.toString().split(":")[0]);
   }
@@ -58,4 +76,16 @@ public class BreakpointManager extends HashMap<Class<?>, Map<Integer, Breakpoint
     return Collections.unmodifiableSet(classNames);
   }
 
+  @Override
+  public String toString() {
+    StringBuilder breakpoints = new StringBuilder().append(size()).append("\n");
+    for (Map.Entry<Class<?>, Map<Integer, Breakpoint>> forClass : entrySet()) {
+      String className = forClass.getKey().getName();
+      for (Map.Entry<Integer, Breakpoint> entry : forClass.getValue().entrySet()) {
+        breakpoints.append(className).append(":").append(entry.getKey()).append("\n");
+      }
+    }
+    breakpoints.deleteCharAt(breakpoints.lastIndexOf("\n"));
+    return breakpoints.toString();
+  }
 }
