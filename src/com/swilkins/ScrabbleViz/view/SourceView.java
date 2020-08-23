@@ -72,6 +72,10 @@ public class SourceView extends JPanel {
     classes.put(clazz, clazzAsString);
   }
 
+  public boolean hasClass(Class<?> clazz) {
+    return classes.containsKey(clazz);
+  }
+
   public Class<?> getDisplayedClass() {
     return displayedClazz;
   }

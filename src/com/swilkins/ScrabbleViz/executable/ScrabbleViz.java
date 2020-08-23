@@ -142,6 +142,7 @@ public class ScrabbleViz {
   private static void deleteActiveStepRequest() {
     synchronized (stepRequestLock) {
       if (activeStepRequest != null) {
+        activeStepRequest.disable();
         vm.eventRequestManager().deleteEventRequest(activeStepRequest);
         activeStepRequest = null;
       }
@@ -177,14 +178,9 @@ public class ScrabbleViz {
               deleteActiveStepRequest();
               visit(debugger, (LocatableEvent) event);
             } else if (event instanceof StepEvent) {
-              if (debugger.getBreakpointManager().contains(((StepEvent) event).location())) {
-                synchronized (stepRequestLock) {
-                  if (activeStepRequest.depth() == 1) {
-                    deleteActiveStepRequest();
-                  }
-                }
+              if (sourceView.hasClass(toClass(((StepEvent) event).location()))) {
+                visit(debugger, (LocatableEvent) event);
               }
-              visit(debugger, (LocatableEvent) event);
             }
             vm.resume();
           }
