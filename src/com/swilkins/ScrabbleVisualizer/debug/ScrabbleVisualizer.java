@@ -94,10 +94,7 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void configureView() {
-    DebuggerViewOptions options = new DebuggerViewOptions();
-    options.setTextColor(Color.WHITE);
-    options.setBackgroundColor(Color.BLACK);
-    view.setOptions(options);
+    view.setOptions(null);
 
     Dimension topThird = new Dimension(screenSize.width, screenSize.height / 3);
     view.setPreferredSize(topThird);
@@ -110,7 +107,7 @@ public class ScrabbleVisualizer extends Debugger {
   protected void configureModel() throws IOException {
     model.addDebugClassSource(
             GeneratorTarget.class,
-            new DebugClassSource(22) {
+            new DebugClassSource(15, 27) {
               @Override
               public String getContentsAsString() {
                 InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");

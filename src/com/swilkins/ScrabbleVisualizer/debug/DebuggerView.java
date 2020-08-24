@@ -59,7 +59,7 @@ public class DebuggerView extends JPanel {
     DebuggerViewOptions resolvedOptions = Objects.requireNonNullElseGet(options, DebuggerViewOptions::new);
     debugClassTextView.setOptions(resolvedOptions);
 
-    isCenteringPreservedOnClick = options.isCenteringPreservedOnClick();
+    isCenteringPreservedOnClick = resolvedOptions.isCenteringPreservedOnClick();
 
     boolean isScrollable = resolvedOptions.isScrollable();
     scrollWrapper.setWheelScrollingEnabled(isScrollable);
@@ -161,7 +161,8 @@ public class DebuggerView extends JPanel {
           if (element != null) {
             breakpointViews.add(modelToView2D(element.getStartOffset()));
           }
-        } catch (BadLocationException ignored) {
+        } catch (BadLocationException e) {
+          e.printStackTrace();
         }
       }
       repaint();

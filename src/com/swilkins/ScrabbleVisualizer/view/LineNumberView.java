@@ -241,6 +241,7 @@ public class LineNumberView extends JPanel
         //  Move to the next row
         rowStartOffset = Utilities.getRowEnd(component, rowStartOffset) + 1;
       } catch (Exception e) {
+        e.printStackTrace();
         break;
       }
     }
@@ -355,7 +356,7 @@ public class LineNumberView extends JPanel
           getParent().repaint();
           lastHeight = (int) rect.getY();
         }
-      } catch (BadLocationException ignore) { /* nothing to do */ }
+      } catch (BadLocationException e) { e.printStackTrace(); /* nothing to do */ }
     });
   }
 

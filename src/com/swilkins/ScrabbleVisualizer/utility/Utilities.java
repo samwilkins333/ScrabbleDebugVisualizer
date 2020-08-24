@@ -20,6 +20,7 @@ public final class Utilities {
       }
       return out.toString();
     } catch (IOException e) {
+      e.printStackTrace();
       return null;
     }
   }

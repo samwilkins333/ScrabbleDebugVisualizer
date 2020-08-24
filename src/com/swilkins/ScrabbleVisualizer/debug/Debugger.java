@@ -185,6 +185,7 @@ public abstract class Debugger {
       }
       return object.invokeMethod(thread, toInvoke, Collections.emptyList(), 0);
     } catch (Exception e) {
+      e.printStackTrace();
       return null;
     }
   }
