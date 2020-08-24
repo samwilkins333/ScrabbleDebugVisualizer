@@ -34,9 +34,8 @@ public abstract class Debugger {
           deserializeReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
-    Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new HashMap<>();
-
     view = new DebuggerView();
+    Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new HashMap<>();
     defaultActionListeners.put(RESUME, e -> resume());
     defaultActionListeners.put(STEP_OVER, e -> activateStepRequest(StepRequest.STEP_OVER));
     defaultActionListeners.put(STEP_INTO, e -> activateStepRequest(StepRequest.STEP_INTO));
@@ -49,7 +48,6 @@ public abstract class Debugger {
       }
     });
     view.setDefaultActionListeners(defaultActionListeners);
-
     configureView();
 
     model = new DebuggerModel();
