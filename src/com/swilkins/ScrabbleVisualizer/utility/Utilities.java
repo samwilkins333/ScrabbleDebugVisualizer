@@ -10,7 +10,6 @@ public final class Utilities {
 
   public static String inputStreamToString(InputStream debugSourceStream) {
     try {
-
       final int bufferSize = 1024;
       final char[] buffer = new char[bufferSize];
       final StringBuilder out = new StringBuilder();

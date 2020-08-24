@@ -30,6 +30,7 @@ import java.util.Set;
  */
 public class LineNumberView extends JPanel
         implements CaretListener, DocumentListener, PropertyChangeListener {
+
   public final static float LEFT = 0.0f;
   public final static float CENTER = 0.5f;
   public final static float RIGHT = 1.0f;
@@ -110,7 +111,7 @@ public class LineNumberView extends JPanel
   }
 
   public void setBreakpointLines(DebugClass debugClass) {
-    this.breakpointLines = debugClass.getEnabledBreakpoints();
+    this.breakpointLines = debugClass.getBreakpoints();
     repaint();
   }
 
@@ -376,4 +377,5 @@ public class LineNumberView extends JPanel
       }
     }
   }
+
 }

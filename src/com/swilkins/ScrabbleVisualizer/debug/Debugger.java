@@ -18,14 +18,16 @@ public abstract class Debugger {
 
   protected final DebuggerView view;
   protected final DebuggerModel model;
-  protected final Object eventProcessingControl = new Object();
-  protected final Object stepRequestLock = new Object();
-  protected final Map<String, Deserializer> deserializers = new HashMap<>();
-  private final Deserializer toString = (object, thread) ->
-          deserializeReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
+
   protected ThreadReference threadReference;
   protected StepRequest activeStepRequest;
 
+  protected final Object eventProcessingControl = new Object();
+  protected final Object stepRequestLock = new Object();
+
+  protected final Map<String, Deserializer> deserializers = new HashMap<>();
+  private final Deserializer toString = (object, thread) ->
+          deserializeReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
     view = new DebuggerView();

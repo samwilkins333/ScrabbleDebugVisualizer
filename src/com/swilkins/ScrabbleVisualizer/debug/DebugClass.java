@@ -7,6 +7,7 @@ import com.sun.jdi.request.BreakpointRequest;
 import java.util.*;
 
 public class DebugClass {
+
   private final Class<?> clazz;
   private final DebugClassSource debugClassSource;
   private final DebugClassOperations operations;
@@ -17,10 +18,6 @@ public class DebugClass {
     this.clazz = clazz;
     this.debugClassSource = debugClassSource;
     this.operations = operations;
-  }
-
-  public Class<?> getClazz() {
-    return clazz;
   }
 
   public void setCached(boolean cached) {
@@ -54,7 +51,7 @@ public class DebugClass {
     }
   }
 
-  public Set<Integer> getEnabledBreakpoints() {
+  public Set<Integer> getBreakpoints() {
     Set<Integer> enabledBreakpoints = new HashSet<>(breakpointRequestMap.size());
     for (Map.Entry<Integer, BreakpointRequest> breakpointEntry : breakpointRequestMap.entrySet()) {
       if (breakpointEntry.getValue().isEnabled()) {
@@ -79,22 +76,11 @@ public class DebugClass {
     return breakpointRequestMap.containsKey(lineNumber);
   }
 
-  public boolean disableBreakpointAt(int lineNumber) {
-    BreakpointRequest request = breakpointRequestMap.get(lineNumber);
-    if (request != null && request.isEnabled()) {
-      request.disable();
-      return true;
-    }
-    return false;
-  }
-
-  public boolean removeBreakpointAt(int lineNumber) {
+  public void removeBreakpointAt(int lineNumber) {
     BreakpointRequest request = breakpointRequestMap.remove(lineNumber);
-    if (request == null) {
-      return false;
+    if (request != null) {
+      operations.getBreakpointRemover().remove(request);
     }
-    operations.getBreakpointRemover().remove(request);
-    return true;
   }
 
 }

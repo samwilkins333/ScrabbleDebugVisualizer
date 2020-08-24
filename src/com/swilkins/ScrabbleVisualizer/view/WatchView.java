@@ -14,16 +14,22 @@ import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_BOARD_DIMEN
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_RACK_CAPACITY;
 
 public class WatchView extends JPanel {
-  private static final int ICON_SIZE = 12;
-  private final JLabel[][] cells = new JLabel[STANDARD_BOARD_DIMENSIONS][STANDARD_BOARD_DIMENSIONS];
-  private final JLabel[] rack = new JLabel[STANDARD_RACK_CAPACITY];
-  private final Map<String, ImageIcon> directionIcons = new HashMap<>();
-  JTextArea candidates = new JTextArea();
-  JTextArea annotation = new JTextArea();
-  private JLabel currentCell;
+
   private JTabbedPane tabbedPane;
+
+  private final JLabel[][] cells = new JLabel[STANDARD_BOARD_DIMENSIONS][STANDARD_BOARD_DIMENSIONS];
+  private JLabel currentCell;
+
+  private final JLabel[] rack = new JLabel[STANDARD_RACK_CAPACITY];
+
+  private final Map<String, ImageIcon> directionIcons = new HashMap<>();
+  private static final int ICON_SIZE = 12;
+
+  private JTextArea candidates = new JTextArea();
+  private JTextArea annotation = new JTextArea();
   private JTextArea rawWatchedName = new JTextArea();
   private JTextArea rawWatchedValue = new JTextArea();
+
   private List<Object[]> currentPlacements = new ArrayList<>();
   private Map<String[], BiConsumer<Location, Iterator<Object>>> updaters = new LinkedHashMap<>();
 

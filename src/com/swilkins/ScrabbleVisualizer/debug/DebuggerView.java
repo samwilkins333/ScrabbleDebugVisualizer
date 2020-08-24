@@ -14,9 +14,11 @@ import java.util.List;
 import java.util.Objects;
 
 public class DebuggerView extends JPanel {
-  private final DebugClassTextView debugClassTextView;
+
   private final JScrollPane scrollWrapper;
+  private final DebugClassTextView debugClassTextView;
   private final JLabel locationLabel = new JLabel(" ");
+
   private DebugClassLocation selectedLocation;
   private boolean isCenteringPreservedOnClick = false;
 
@@ -153,7 +155,7 @@ public class DebuggerView extends JPanel {
     public void repaintWith(DebugClass debugClass) {
       lineNumberView.setBreakpointLines(debugClass);
       breakpointViews.clear();
-      for (int lineNumber : debugClass.getEnabledBreakpoints()) {
+      for (int lineNumber : debugClass.getBreakpoints()) {
         try {
           Element element = getDocument().getDefaultRootElement().getElement(lineNumber - 1);
           if (element != null) {

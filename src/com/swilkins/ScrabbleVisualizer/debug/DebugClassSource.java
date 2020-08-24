@@ -1,6 +1,7 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
 public abstract class DebugClassSource {
+
   private final int[] compileTimeBreakpoints;
 
   public DebugClassSource(int... compileTimeBreakpoints) {

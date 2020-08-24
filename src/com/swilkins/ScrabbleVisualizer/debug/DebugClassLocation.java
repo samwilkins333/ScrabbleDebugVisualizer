@@ -1,6 +1,7 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
 public class DebugClassLocation {
+
   private DebugClass debugClass;
   private int lineNumber;
 

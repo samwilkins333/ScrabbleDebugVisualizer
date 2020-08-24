@@ -8,7 +8,7 @@ public enum DebuggerExceptionType {
   private String locationName;
 
   DebuggerExceptionType(String locationName) {
-
+    this.locationName = locationName;
   }
 
   public String getLocationName() {
