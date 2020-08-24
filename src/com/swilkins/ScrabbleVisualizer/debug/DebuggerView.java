@@ -1,7 +1,6 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.AbsentInformationException;
-import com.sun.jdi.event.ExceptionEvent;
 import com.swilkins.ScrabbleVisualizer.view.LineNumberView;
 
 import javax.swing.*;
@@ -13,8 +12,6 @@ import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
-import static com.swilkins.ScrabbleVisualizer.utility.Unpackers.unpackReference;
 
 public class DebuggerView extends JPanel {
   private final DebugClassTextView debugClassTextView;
@@ -128,14 +125,8 @@ public class DebuggerView extends JPanel {
     return debugClassTextView;
   }
 
-
-  public void reportVirtualMachineException(ExceptionEvent event) {
-    Object exception = unpackReference(event.thread(), event.exception());
-    debugClassTextView.setText(String.format("Exception in Virtual Machine\n%s\n\n", exception));
-  }
-
-  public void reportException(Exception exception) {
-    debugClassTextView.setText(String.format("Exception\n%s\n\n", exception));
+  public void reportException(String exception, DebuggerExceptionType type) {
+    debugClassTextView.setText(String.format("Exception in %s\n%s\n\n", type.getLocationName(), exception));
   }
 
   public static class DebugClassTextView extends JTextArea {
