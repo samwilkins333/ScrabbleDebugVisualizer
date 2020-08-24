@@ -8,16 +8,19 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.awt.geom.Rectangle2D;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class DebuggerView extends JPanel {
 
   private final JScrollPane scrollWrapper;
-  private final DebugClassTextView debugClassTextView;
+
   private final JLabel locationLabel = new JLabel(" ");
+  private final DebugClassTextView debugClassTextView;
+  private final JPanel defaultControlPanel;
+  private final Map<DefaultDebuggerControl, JButton> defaultControlButtons = new HashMap<>();
 
   private DebugClassLocation selectedLocation;
   private boolean isCenteringPreservedOnClick = false;
@@ -53,6 +56,20 @@ public class DebuggerView extends JPanel {
     scrollWrapper = new JScrollPane(debugClassTextView);
     scrollWrapper.setRowHeaderView(debugClassTextView.lineNumberView);
     add(scrollWrapper);
+
+    defaultControlPanel = new JPanel();
+    defaultControlPanel.setLayout(new BoxLayout(defaultControlPanel, BoxLayout.X_AXIS));
+    add(defaultControlPanel);
+  }
+
+  public void setDefaultActionListeners(Map<DefaultDebuggerControl, ActionListener> defaultActionListeners) {
+    JButton controlButton;
+    for (Map.Entry<DefaultDebuggerControl, ActionListener> defaultControlButton : defaultActionListeners.entrySet()) {
+      DefaultDebuggerControl control = defaultControlButton.getKey();
+      controlButton = new JButton(control.getLabel());
+      controlButton.addActionListener(defaultControlButton.getValue());
+      defaultControlButtons.put(control, controlButton);
+    }
   }
 
   public void setOptions(DebuggerViewOptions options) {
@@ -67,6 +84,14 @@ public class DebuggerView extends JPanel {
       scrollWrapper.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
       scrollWrapper.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
     }
+  }
+
+  public void addDefaultControlButton(DefaultDebuggerControl control) {
+    defaultControlPanel.add(defaultControlButtons.get(control));
+  }
+
+  public JButton getDefaultControlButton(DefaultDebuggerControl control) {
+    return defaultControlButtons.get(control);
   }
 
   public DebugClassLocation getSelectedLocation() {

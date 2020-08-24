@@ -28,6 +28,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
+import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public class ScrabbleVisualizer extends Debugger {
@@ -47,14 +48,9 @@ public class ScrabbleVisualizer extends Debugger {
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.add(view);
-
-    watchView = new WatchView(new Dimension(screenSize.width / 3, screenSize.height / 3));
-
-    panel.add(defaultControlPanel);
-    panel.add(watchView);
+    panel.add(watchView = new WatchView(new Dimension(screenSize.width / 3, screenSize.height / 3)));
 
     frame.getContentPane().add(panel);
-
     frame.setVisible(true);
   }
 
@@ -68,9 +64,11 @@ public class ScrabbleVisualizer extends Debugger {
     view.setMaximumSize(topThird);
     view.setSize(topThird);
 
-    for (Map.Entry<DefaultDebuggerControl, JButton> defaultControlButton : defaultControlButtons.entrySet()) {
-      defaultControlPanel.add(defaultControlButton.getValue());
-    }
+    view.addDefaultControlButton(RESUME);
+    view.addDefaultControlButton(STEP_OVER);
+    view.addDefaultControlButton(STEP_INTO);
+    view.addDefaultControlButton(STEP_OUT);
+    view.addDefaultControlButton(TOGGLE_BREAKPOINT);
   }
 
   @Override
