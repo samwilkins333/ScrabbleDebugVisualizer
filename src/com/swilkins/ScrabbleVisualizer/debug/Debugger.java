@@ -15,6 +15,7 @@ import java.util.Map;
 public abstract class Debugger {
 
   protected final VirtualMachine virtualMachine;
+  protected final EventRequestManager eventRequestManager;
 
   protected final DebuggerView view;
   protected final DebuggerModel model;
@@ -42,6 +43,7 @@ public abstract class Debugger {
     arguments.get("main").setValue(virtualMachineTargetClass.getName());
     onVirtualMachineLaunch(arguments);
     virtualMachine = launchingConnector.launch(arguments);
+    eventRequestManager = virtualMachine.eventRequestManager();
   }
 
   protected abstract void configureView();
@@ -62,11 +64,10 @@ public abstract class Debugger {
 
   public void start() {
     new Thread(() -> {
+      model.submitDebugClassSources(eventRequestManager);
+      model.enableExceptionReporting(eventRequestManager, false);
       EventSet eventSet;
       try {
-        EventRequestManager eventRequestManager = virtualMachine.eventRequestManager();
-        model.submitDebugClassSources(eventRequestManager);
-        model.enableExceptionReporting(eventRequestManager, false);
         while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof LocatableEvent) {
