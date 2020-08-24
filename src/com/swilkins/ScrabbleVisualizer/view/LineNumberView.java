@@ -241,7 +241,6 @@ public class LineNumberView extends JPanel
         //  Move to the next row
         rowStartOffset = Utilities.getRowEnd(component, rowStartOffset) + 1;
       } catch (Exception e) {
-        e.printStackTrace();
         break;
       }
     }
