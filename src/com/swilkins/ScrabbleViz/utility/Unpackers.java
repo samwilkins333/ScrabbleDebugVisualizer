@@ -93,6 +93,15 @@ public class Unpackers {
     }
   }
 
+  public static Map<String, Object> unpackVariables(ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
+    StackFrame frame = thread.frame(0);
+    Map<String, Object> unpackedVariables = new HashMap<>();
+    for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
+      unpackedVariables.put(entry.getKey().name(), unpackReference(thread, entry.getValue()));
+    }
+    return unpackedVariables;
+  }
+
   public static Object unpackReference(ThreadReference thread, Value value) {
     if (value instanceof ObjectReference) {
       ((ObjectReference) value).disableCollection();

@@ -1,10 +1,6 @@
 package com.swilkins.ScrabbleViz.utility;
 
-import com.sun.jdi.IntegerValue;
 import com.sun.jdi.Location;
-import com.sun.jdi.Type;
-import com.sun.jdi.VirtualMachine;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,93 +10,32 @@ import java.nio.charset.StandardCharsets;
 
 public final class Utilities {
 
-  public static String inputStreamToString(InputStream inputStream) {
-    String generatorSourceString;
+  public static Class<?> toClass(Location location) {
+    Class<?> result;
+    String className = location.toString().split(":")[0];
+    try {
+      result = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      result = null;
+    }
+    return result;
+  }
+
+  public static String inputStreamToString(InputStream debugSourceStream) {
     try {
 
       final int bufferSize = 1024;
       final char[] buffer = new char[bufferSize];
       final StringBuilder out = new StringBuilder();
-      Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+      Reader in = new InputStreamReader(debugSourceStream, StandardCharsets.UTF_8);
       int charsRead;
       while ((charsRead = in.read(buffer, 0, buffer.length)) > 0) {
         out.append(buffer, 0, charsRead);
       }
-      generatorSourceString = out.toString();
+      return out.toString();
     } catch (IOException e) {
-      generatorSourceString = null;
-      e.printStackTrace();
+      return null;
     }
-    return generatorSourceString;
-  }
-
-  public static Class<?> toClass(Location location) throws ClassNotFoundException {
-    return Class.forName(location.toString().split(":")[0]);
-  }
-
-  public static IntegerValue toValue(int value) {
-    return new IntegerValue() {
-      @Override
-      public int value() {
-        return value;
-      }
-
-      @Override
-      public boolean booleanValue() {
-        return false;
-      }
-
-      @Override
-      public byte byteValue() {
-        return (byte) value;
-      }
-
-      @Override
-      public char charValue() {
-        return (char) value;
-      }
-
-      @Override
-      public short shortValue() {
-        return (short) value;
-      }
-
-      @Override
-      public int intValue() {
-        return value;
-      }
-
-      @Override
-      public long longValue() {
-        return value;
-      }
-
-      @Override
-      public float floatValue() {
-        return value;
-      }
-
-      @Override
-      public double doubleValue() {
-        return value;
-      }
-
-      @Override
-      public Type type() {
-        return null;
-      }
-
-      @Override
-      public VirtualMachine virtualMachine() {
-        return null;
-      }
-
-      @Override
-      public int compareTo(@NotNull IntegerValue o) {
-        return 0;
-      }
-
-    };
   }
 
 }

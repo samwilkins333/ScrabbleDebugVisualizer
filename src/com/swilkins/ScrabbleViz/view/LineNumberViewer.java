@@ -1,5 +1,7 @@
 package com.swilkins.ScrabbleViz.view;
 
+import com.swilkins.ScrabbleViz.debugClass.DebugClass;
+
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
@@ -26,7 +28,7 @@ import java.util.Set;
  * This class was designed to be used as a component added to the row header
  * of a JScrollPane.
  */
-public class TextLineNumber extends JPanel
+public class LineNumberViewer extends JPanel
         implements CaretListener, DocumentListener, PropertyChangeListener {
   public final static float LEFT = 0.0f;
   public final static float CENTER = 0.5f;
@@ -51,7 +53,7 @@ public class TextLineNumber extends JPanel
   private int lastHeight;
   private int lastLine;
 
-  private Set<Integer> breakpoints;
+  private Set<Integer> breakpointLines;
 
   private HashMap<String, FontMetrics> fonts;
 
@@ -61,7 +63,7 @@ public class TextLineNumber extends JPanel
    *
    * @param component the related text component
    */
-  public TextLineNumber(JTextComponent component) {
+  public LineNumberViewer(JTextComponent component) {
     this(component, 3);
   }
 
@@ -72,7 +74,7 @@ public class TextLineNumber extends JPanel
    * @param minimumDisplayDigits the number of digits used to calculate
    *                             the minimum width of the component
    */
-  public TextLineNumber(JTextComponent component, int minimumDisplayDigits) {
+  public LineNumberViewer(JTextComponent component, int minimumDisplayDigits) {
     this.component = component;
 
     setFont(component.getFont());
@@ -95,8 +97,8 @@ public class TextLineNumber extends JPanel
     return updateFont;
   }
 
-  public void setBreakpoints(Set<Integer> breakpoints) {
-    this.breakpoints = breakpoints;
+  public void setBreakpointLines(DebugClass debugClass) {
+    this.breakpointLines = debugClass.getEnabledBreakpoints();
     repaint();
   }
 
@@ -232,7 +234,7 @@ public class TextLineNumber extends JPanel
         int stringWidth = fontMetrics.stringWidth(stringLineNumber);
         int x = getOffsetX(availableWidth, stringWidth) + insets.left;
         int y = getOffsetY(rowStartOffset, fontMetrics);
-        g.setColor(breakpoints.contains(lineNumber) ? Color.RED : Color.BLACK);
+        g.setColor(breakpointLines.contains(lineNumber) ? Color.RED : Color.BLACK);
         g.drawString(stringLineNumber, x, y);
 
         //  Move to the next row

@@ -5,13 +5,14 @@ import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.*;
+import com.sun.jdi.request.EventRequestManager;
 import com.sun.jdi.request.StepRequest;
 import com.swilkins.ScrabbleBase.Generation.Generator;
-import com.swilkins.ScrabbleViz.debug.BreakpointManager;
-import com.swilkins.ScrabbleViz.debug.BreakpointManager.Breakpoint;
-import com.swilkins.ScrabbleViz.debug.Debugger;
+import com.swilkins.ScrabbleViz.debugClass.DebugClass;
+import com.swilkins.ScrabbleViz.debugClass.DebugClassLocation;
+import com.swilkins.ScrabbleViz.debugClass.DebugClassSource;
+import com.swilkins.ScrabbleViz.debugClass.DebugClassViewer;
 import com.swilkins.ScrabbleViz.utility.Invokable;
-import com.swilkins.ScrabbleViz.view.SourceView;
 import com.swilkins.ScrabbleViz.view.WatchView;
 
 import javax.swing.*;
@@ -20,20 +21,21 @@ import java.awt.*;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackVariables;
 import static com.swilkins.ScrabbleViz.utility.Utilities.inputStreamToString;
 import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
 public class ScrabbleViz {
-  private static SourceView sourceView;
+  private static DebugClassViewer debugClassViewer;
   private static WatchView watchView;
   private static final Class<?> mainClass = GeneratorTarget.class;
 
   private static VirtualMachine vm;
-  private static Debugger debugger;
   private static ThreadReference threadReference;
   private static StepRequest activeStepRequest;
 
@@ -58,28 +60,20 @@ public class ScrabbleViz {
     });
   }
 
-  private static void updateAnnotation(Class<?> clazz, int lineNumber) {
-    Breakpoint breakpoint = debugger.getBreakpointManager().getBreakpointAt(clazz, lineNumber);
-    String annotation = breakpoint != null ? breakpoint.getAnnotation() : "No breakpoint.";
-    watchView.setAnnotation(annotation != null ? annotation : "No annotation provided.");
-  }
-
   private static void populateChildren(JFrame frame, Dimension dimension) throws IOException {
-    initializeSourceView();
+    initializeDebugClassViewer();
 
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     Dimension constraints = new Dimension(dimension.width, dimension.height / 3);
-    sourceView.setPreferredSize(constraints);
-    sourceView.setMinimumSize(constraints);
-    sourceView.setMaximumSize(constraints);
-    sourceView.setSize(constraints);
+    debugClassViewer.setPreferredSize(constraints);
+    debugClassViewer.setMinimumSize(constraints);
+    debugClassViewer.setMaximumSize(constraints);
+    debugClassViewer.setSize(constraints);
 
-    panel.add(sourceView);
+    panel.add(debugClassViewer);
 
     watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
-
-    sourceView.addLocationChangedListener(ScrabbleViz::updateAnnotation);
 
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
@@ -106,17 +100,11 @@ public class ScrabbleViz {
 
     controlButton = new JButton("Toggle Breakpoint");
     controlButton.addActionListener(e -> {
-      BreakpointManager breakpointManager = debugger.getBreakpointManager();
-      Class<?> clazz = sourceView.getDisplayedClass();
-      int lineNumber = sourceView.getDisplayedLineNumber();
-      if (breakpointManager.contains(clazz, lineNumber)) {
-        vm.eventRequestManager().deleteEventRequest(breakpointManager.removeBreakpointAt(clazz, lineNumber).getRequest());
-      } else {
-        breakpointManager.createBreakpointAt(clazz, lineNumber, "Created at runtime.");
+      try {
+        debugClassViewer.toggleBreakpointAt(debugClassViewer.getSelectedLocation());
+      } catch (AbsentInformationException ex) {
+        debugClassViewer.reportException(ex);
       }
-      debugger.submitClassPrepareRequests(vm);
-      sourceView.setBreakpoints(debugger.getBreakpointManager());
-      updateAnnotation(clazz, lineNumber);
     });
     controls.add(controlButton);
 
@@ -157,29 +145,28 @@ public class ScrabbleViz {
 
   private static Runnable executeDebugger(Invokable onTerminate) {
     return () -> {
-      debugger = new Debugger();
-      BreakpointManager breakpointManager = debugger.getBreakpointManager();
-      breakpointManager.createBreakpointAt(GeneratorTarget.class, 22, "Completed preliminary setup.");
-      breakpointManager.createBreakpointAt(Generator.class, 203, "The algorithm found a valid candidate!");
       EventSet eventSet;
       try {
-        debugger.submitClassPrepareRequests(vm = connectAndLaunchVM());
-        debugger.enableExceptionRequest(vm);
+        vm = connectAndLaunchVM();
+        EventRequestManager eventRequestManager = vm.eventRequestManager();
+        debugClassViewer.submitDebugClassSources(eventRequestManager);
+        debugClassViewer.enableExceptionReporting(eventRequestManager, false);
         while ((eventSet = vm.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof LocatableEvent) {
               threadReference = ((LocatableEvent) event).thread();
             }
             if (event instanceof ClassPrepareEvent) {
-              debugger.setBreakPoints(vm, (ClassPrepareEvent) event);
+              debugClassViewer.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
             } else if (event instanceof ExceptionEvent) {
-              sourceView.reportException((ExceptionEvent) event);
+              debugClassViewer.reportVirtualMachineException((ExceptionEvent) event);
             } else if (event instanceof BreakpointEvent) {
               deleteActiveStepRequest();
-              suspendAndVisit(debugger, (LocatableEvent) event);
+              suspendAndVisit((LocatableEvent) event);
             } else if (event instanceof StepEvent) {
-              if (sourceView.hasClass(toClass(((StepEvent) event).location()))) {
-                suspendAndVisit(debugger, (LocatableEvent) event);
+              Class<?> clazz = toClass(((StepEvent) event).location());
+              if (clazz != null && debugClassViewer.getDebugClassFor(clazz) != null) {
+                suspendAndVisit((LocatableEvent) event);
               }
             }
             vm.resume();
@@ -201,31 +188,51 @@ public class ScrabbleViz {
     return launchingConnector.launch(arguments);
   }
 
-  private static void initializeSourceView() throws IOException {
-    sourceView = new SourceView(null, null, Color.decode("#00FFFF"));
-    String raw;
+  private static void initializeDebugClassViewer() throws IOException {
+    debugClassViewer = new DebugClassViewer(null);
 
-    raw = inputStreamToString(ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java"));
-    sourceView.addClass(GeneratorTarget.class, raw);
+    debugClassViewer.addDebugClassSource(
+            GeneratorTarget.class,
+            new DebugClassSource(22) {
+              @Override
+              public String getContentsAsString() {
+                InputStream debugClassStream = ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java");
+                return inputStreamToString(debugClassStream);
+              }
+            }
+    );
 
     File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
     JarFile jarFile = new JarFile(file);
     JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
-    raw = inputStreamToString(jarFile.getInputStream(generator));
-    sourceView.addClass(Generator.class, raw);
+    debugClassViewer.addDebugClassSource(
+            Generator.class,
+            new DebugClassSource(203) {
+              @Override
+              public String getContentsAsString() {
+                try {
+                  InputStream debugClassStream = jarFile.getInputStream(generator);
+                  return inputStreamToString(debugClassStream);
+                } catch (IOException e) {
+                  return null;
+                }
+              }
+            }
+    );
   }
 
-  private static void suspendAndVisit(Debugger debugger, LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+  private static void suspendAndVisit(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
     ThreadReference thread = event.thread();
     Location location = event.location();
     Class<?> clazz = toClass(location);
-    if (!sourceView.hasClass(clazz)) {
+
+    DebugClass debugClass = debugClassViewer.getDebugClassFor(clazz);
+    if (debugClass == null) {
       return;
     }
-    sourceView.setDisplayedClass(clazz);
-    sourceView.setDisplayedLineNumber(location.lineNumber());
-    sourceView.setBreakpoints(debugger.getBreakpointManager());
-    watchView.updateFrom(location, debugger.unpackVariables(thread));
+    DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, location.lineNumber());
+    debugClassViewer.setSelectedLocation(selectedLocation);
+    watchView.updateFrom(location, unpackVariables(thread));
     synchronized (suspensionLock) {
       try {
         suspensionLock.wait();
