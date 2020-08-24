@@ -12,22 +12,6 @@ public class DebuggerViewOptions {
   private boolean isScrollable = true;
   private boolean centeringPreservedOnClick = false;
 
-  public boolean isCenteringPreservedOnClick() {
-    return centeringPreservedOnClick;
-  }
-
-  public void setCenteringPreservedOnClick(boolean centeringPreservedOnClick) {
-    this.centeringPreservedOnClick = centeringPreservedOnClick;
-  }
-
-  public boolean isScrollable() {
-    return isScrollable;
-  }
-
-  public void setScrollable(boolean scrollable) {
-    isScrollable = scrollable;
-  }
-
   public DebuggerViewOptions(Color textColor, Color backgroundColor, Color selectedLocationColor, Color breakpointColor) {
     this.textColor = textColor;
     this.backgroundColor = backgroundColor;
@@ -42,6 +26,22 @@ public class DebuggerViewOptions {
 
   public DebuggerViewOptions() {
 
+  }
+
+  public boolean isCenteringPreservedOnClick() {
+    return centeringPreservedOnClick;
+  }
+
+  public void setCenteringPreservedOnClick(boolean centeringPreservedOnClick) {
+    this.centeringPreservedOnClick = centeringPreservedOnClick;
+  }
+
+  public boolean isScrollable() {
+    return isScrollable;
+  }
+
+  public void setScrollable(boolean scrollable) {
+    isScrollable = scrollable;
   }
 
   public Color getTextColor() {
