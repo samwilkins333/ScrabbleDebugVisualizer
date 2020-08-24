@@ -23,10 +23,12 @@ import java.awt.*;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 
+import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public class ScrabbleVisualizer extends Debugger {
@@ -34,6 +36,7 @@ public class ScrabbleVisualizer extends Debugger {
   private static final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
   private WatchView watchView;
   private JFrame frame;
+  public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
 
   public ScrabbleVisualizer() throws Exception {
     super(GeneratorTarget.class);
@@ -62,7 +65,16 @@ public class ScrabbleVisualizer extends Debugger {
     view.setMaximumSize(topThird);
     view.setSize(topThird);
 
-    view.addDefaultControlButton(null);
+    for (DefaultDebuggerControl control : DefaultDebuggerControl.values()) {
+      view.addDefaultControlButton(control);
+      attachIconFor(control);
+    }
+  }
+
+  private void attachIconFor(DefaultDebuggerControl control) {
+    URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
+    ImageIcon controlIcon = createImageIconFrom(iconUrl, ICON_DIMENSION);
+    view.getDefaultControlButton(control).setIcon(controlIcon);
   }
 
   @Override

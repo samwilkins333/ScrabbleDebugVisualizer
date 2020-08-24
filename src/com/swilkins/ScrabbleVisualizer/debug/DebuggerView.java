@@ -17,7 +17,7 @@ public class DebuggerView extends JPanel {
 
   private final JScrollPane scrollWrapper;
 
-  private final JLabel locationLabel = new JLabel(" ");
+  private final JLabel locationLabel = new JLabel();
   private final DebugClassTextView debugClassTextView;
   private final JPanel defaultControlPanel;
   private final Map<DefaultDebuggerControl, JButton> defaultControlButtons = new LinkedHashMap<>();
@@ -87,13 +87,7 @@ public class DebuggerView extends JPanel {
   }
 
   public void addDefaultControlButton(DefaultDebuggerControl control) {
-    if (control == null) {
-      for (Map.Entry<DefaultDebuggerControl, JButton> buttonEntry : defaultControlButtons.entrySet()) {
-        defaultControlPanel.add(buttonEntry.getValue());
-      }
-    } else {
-      defaultControlPanel.add(defaultControlButtons.get(control));
-    }
+    defaultControlPanel.add(defaultControlButtons.get(control));
   }
 
   public JButton getDefaultControlButton(DefaultDebuggerControl control) {

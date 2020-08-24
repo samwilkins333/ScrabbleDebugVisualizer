@@ -6,12 +6,15 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import java.awt.*;
+import java.net.URL;
 import java.util.List;
 import java.util.*;
 import java.util.function.BiConsumer;
 
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_BOARD_DIMENSIONS;
 import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_RACK_CAPACITY;
+import static com.swilkins.ScrabbleVisualizer.debug.ScrabbleVisualizer.ICON_DIMENSION;
+import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 
 public class WatchView extends JPanel {
 
@@ -23,7 +26,6 @@ public class WatchView extends JPanel {
   private final JLabel[] rack = new JLabel[STANDARD_RACK_CAPACITY];
 
   private final Map<String, ImageIcon> directionIcons = new HashMap<>();
-  private static final int ICON_SIZE = 12;
 
   private JTextArea candidates = new JTextArea();
   private JTextArea annotation = new JTextArea();
@@ -38,10 +40,10 @@ public class WatchView extends JPanel {
 
     registerUpdaters();
 
-    create("up");
-    create("down");
-    create("left");
-    create("right");
+    createIcon("up");
+    createIcon("down");
+    createIcon("left");
+    createIcon("right");
 
     setBackground(Color.WHITE);
     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
@@ -113,11 +115,9 @@ public class WatchView extends JPanel {
     add(tabbedPane);
   }
 
-  private void create(String name) {
-    ImageIcon icon = new ImageIcon(WatchView.class.getResource(String.format("../resource/icons/%s.png", name)));
-    Image image = icon.getImage();
-    Image scaled = image.getScaledInstance(ICON_SIZE, ICON_SIZE, Image.SCALE_SMOOTH);
-    directionIcons.put(name, new ImageIcon(scaled));
+  private void createIcon(String name) {
+    URL url = getClass().getResource(String.format("../resource/icons/%s.png", name));
+    directionIcons.put(name, createImageIconFrom(url, ICON_DIMENSION));
   }
 
   public void setAnnotation(String annotation) {
