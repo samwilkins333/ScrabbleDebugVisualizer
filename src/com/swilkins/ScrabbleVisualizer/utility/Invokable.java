@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.utility;
+package com.swilkins.ScrabbleVisualizer.utility;
 
 public interface Invokable {
 

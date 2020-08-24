@@ -1,8 +1,8 @@
-package com.swilkins.ScrabbleViz.debug;
+package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.event.ExceptionEvent;
-import com.swilkins.ScrabbleViz.view.LineNumberView;
+import com.swilkins.ScrabbleVisualizer.view.LineNumberView;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackReference;
+import static com.swilkins.ScrabbleVisualizer.utility.Unpackers.unpackReference;
 
 public class DebuggerView extends JPanel {
   private final DebugClassTextView debugClassTextView;
@@ -124,9 +124,9 @@ public class DebuggerView extends JPanel {
   }
 
   public static class DebugClassTextView extends JTextArea {
+    private final LineNumberView lineNumberView;
     private DebuggerViewOptions options = new DebuggerViewOptions();
     private List<Rectangle2D> breakpointViews = new ArrayList<>();
-    private final LineNumberView lineNumberView;
 
     public DebugClassTextView() {
       super();

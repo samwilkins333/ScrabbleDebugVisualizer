@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.utility;
+package com.swilkins.ScrabbleVisualizer.utility;
 
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.ThreadReference;

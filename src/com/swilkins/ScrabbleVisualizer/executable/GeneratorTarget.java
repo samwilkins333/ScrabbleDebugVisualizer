@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.executable;
+package com.swilkins.ScrabbleVisualizer.executable;
 
 import com.swilkins.ScrabbleBase.Board.Configuration;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;

@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.debug;
+package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Location;
@@ -10,9 +10,8 @@ public class DebugClass {
   private final Class<?> clazz;
   private final DebugClassSource debugClassSource;
   private final DebugClassOperations operations;
-  private String cachedContentsString;
-
   private final Map<Integer, BreakpointRequest> breakpointRequestMap = new HashMap<>();
+  private String cachedContentsString;
 
   public DebugClass(Class<?> clazz, DebugClassSource debugClassSource, DebugClassOperations operations) {
     this.clazz = clazz;

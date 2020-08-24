@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.debug;
+package com.swilkins.ScrabbleVisualizer.debug;
 
 public abstract class DebugClassSource {
   private final int[] compileTimeBreakpoints;

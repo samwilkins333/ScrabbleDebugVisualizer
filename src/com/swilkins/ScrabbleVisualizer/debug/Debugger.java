@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.debug;
+package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
@@ -10,8 +10,7 @@ import com.sun.jdi.request.StepRequest;
 import java.io.IOException;
 import java.util.Map;
 
-import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackVariables;
-import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
+import static com.swilkins.ScrabbleVisualizer.utility.Unpackers.unpackVariables;
 
 public abstract class Debugger {
 
@@ -19,37 +18,37 @@ public abstract class Debugger {
 
   protected final DebuggerView view;
   protected final DebuggerModel model;
-
+  protected final Object eventProcessingControl = new Object();
+  protected final Object stepRequestLock = new Object();
   protected ThreadReference threadReference;
   protected StepRequest activeStepRequest;
 
-  protected final Object eventProcessingControl = new Object();
-  protected final Object stepRequestLock = new Object();
-
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
+    view = new DebuggerView();
+    configureView();
+    model = new DebuggerModel();
+    configureModel();
+
     LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
     Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
     arguments.get("main").setValue(virtualMachineTargetClass.getName());
-    this.onVirtualMachineLaunch(arguments);
+    onVirtualMachineLaunch(arguments);
     virtualMachine = launchingConnector.launch(arguments);
-
-    this.view = new DebuggerView();
-    this.configureView();
-    this.model = new DebuggerModel();
-    this.configureModel();
   }
-
-  protected abstract void onVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
 
   protected abstract void configureView();
 
   protected abstract void configureModel() throws IOException;
 
+  protected abstract void onVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
+
+  protected abstract void onVirtualMachineEvent(Event event) throws Exception;
+
   protected abstract void onVirtualMachineSuspension(Location location, Map<String, Object> unpackedVariables);
 
   protected abstract void onVirtualMachineContinuation();
 
-  protected abstract void onTermination();
+  protected abstract void onVirtualMachineTermination();
 
   public void start() {
     new Thread(() -> {
@@ -67,20 +66,12 @@ public abstract class Debugger {
               model.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
             } else if (event instanceof ExceptionEvent) {
               view.reportVirtualMachineException((ExceptionEvent) event);
-            } else if (event instanceof BreakpointEvent) {
-              deleteActiveStepRequest();
-              suspend((LocatableEvent) event);
-            } else if (event instanceof StepEvent) {
-              Class<?> clazz = toClass(((StepEvent) event).location());
-              if (clazz != null && model.getDebugClassFor(clazz) != null) {
-                suspend((LocatableEvent) event);
-              }
             }
-            virtualMachine.resume();
+            onVirtualMachineEvent(event);
           }
         }
       } catch (VMDisconnectedException e) {
-        onTermination();
+        onVirtualMachineTermination();
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -98,24 +89,7 @@ public abstract class Debugger {
     resumeEventProcessing();
   }
 
-  protected void resumeEventProcessing() {
-    synchronized (eventProcessingControl) {
-      deleteActiveStepRequest();
-      eventProcessingControl.notifyAll();
-    }
-  }
-
-  private void awaitParentApproval() {
-    synchronized (eventProcessingControl) {
-      try {
-        eventProcessingControl.wait();
-      } catch (InterruptedException e) {
-        System.exit(0);
-      }
-    }
-  }
-
-  private void deleteActiveStepRequest() {
+  protected void deleteActiveStepRequest() {
     synchronized (stepRequestLock) {
       if (activeStepRequest != null) {
         activeStepRequest.disable();
@@ -125,7 +99,7 @@ public abstract class Debugger {
     }
   }
 
-  private void suspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
+  protected void suspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
     ThreadReference thread = event.thread();
     Location location = event.location();
     Class<?> clazz = toClass(location);
@@ -136,9 +110,36 @@ public abstract class Debugger {
     }
     DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, location.lineNumber());
     view.setSelectedLocation(selectedLocation);
+
     onVirtualMachineSuspension(location, unpackVariables(thread));
-    awaitParentApproval();
+
+    synchronized (eventProcessingControl) {
+      try {
+        eventProcessingControl.wait();
+      } catch (InterruptedException e) {
+        System.exit(0);
+      }
+    }
+
     onVirtualMachineContinuation();
+  }
+
+  protected void resumeEventProcessing() {
+    synchronized (eventProcessingControl) {
+      deleteActiveStepRequest();
+      eventProcessingControl.notifyAll();
+    }
+  }
+
+  public Class<?> toClass(Location location) {
+    Class<?> result;
+    String className = location.toString().split(":")[0];
+    try {
+      result = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      result = null;
+    }
+    return result;
   }
 
 }

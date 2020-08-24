@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.debug;
+package com.swilkins.ScrabbleVisualizer.debug;
 
 import java.awt.*;
 

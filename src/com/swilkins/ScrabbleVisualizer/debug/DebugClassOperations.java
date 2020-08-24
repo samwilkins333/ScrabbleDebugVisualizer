@@ -1,8 +1,8 @@
-package com.swilkins.ScrabbleViz.debug;
+package com.swilkins.ScrabbleVisualizer.debug;
 
-import com.swilkins.ScrabbleViz.debug.interfaces.BreakpointRemover;
-import com.swilkins.ScrabbleViz.debug.interfaces.BreakpointRequester;
-import com.swilkins.ScrabbleViz.debug.interfaces.LocationGetter;
+import com.swilkins.ScrabbleVisualizer.debug.interfaces.BreakpointRemover;
+import com.swilkins.ScrabbleVisualizer.debug.interfaces.BreakpointRequester;
+import com.swilkins.ScrabbleVisualizer.debug.interfaces.LocationGetter;
 
 public class DebugClassOperations {
 

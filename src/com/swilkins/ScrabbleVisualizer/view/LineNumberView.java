@@ -1,6 +1,6 @@
-package com.swilkins.ScrabbleViz.view;
+package com.swilkins.ScrabbleVisualizer.view;
 
-import com.swilkins.ScrabbleViz.debug.DebugClass;
+import com.swilkins.ScrabbleVisualizer.debug.DebugClass;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -97,11 +97,6 @@ public class LineNumberView extends JPanel
     return updateFont;
   }
 
-  public void setBreakpointLines(DebugClass debugClass) {
-    this.breakpointLines = debugClass.getEnabledBreakpoints();
-    repaint();
-  }
-
   /**
    * Set the update font property. Indicates whether this Font should be
    * updated automatically when the Font of the related text component
@@ -112,6 +107,11 @@ public class LineNumberView extends JPanel
    */
   public void setUpdateFont(boolean updateFont) {
     this.updateFont = updateFont;
+  }
+
+  public void setBreakpointLines(DebugClass debugClass) {
+    this.breakpointLines = debugClass.getEnabledBreakpoints();
+    repaint();
   }
 
   /**

@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.utility;
+package com.swilkins.ScrabbleVisualizer.utility;
 
 import com.sun.jdi.*;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
@@ -12,26 +12,9 @@ import java.util.*;
 
 public class Unpackers {
 
+  private static final Map<String, Unpacker> agents = new HashMap<>();
   private static final Unpacker toString = (object, thread) ->
           unpackReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
-
-  public static Unpacker getFor(ObjectReference object) {
-    try {
-      Class<?> clazz = Class.forName(object.referenceType().name());
-      while (clazz != Object.class) {
-        Unpacker existing = agents.get(clazz.getName());
-        if (existing != null) {
-          return existing;
-        }
-        clazz = clazz.getSuperclass();
-      }
-    } catch (ClassNotFoundException e) {
-      return toString;
-    }
-    return toString;
-  }
-
-  private static final Map<String, Unpacker> agents = new HashMap<>();
 
   static {
     Unpacker unpackTileWrapper = (tileWrapper, thread) -> {
@@ -72,6 +55,22 @@ public class Unpackers {
     };
     agents.put(HashSet.class.getName(), unpackArrayable);
     agents.put(LinkedList.class.getName(), unpackArrayable);
+  }
+
+  public static Unpacker getFor(ObjectReference object) {
+    try {
+      Class<?> clazz = Class.forName(object.referenceType().name());
+      while (clazz != Object.class) {
+        Unpacker existing = agents.get(clazz.getName());
+        if (existing != null) {
+          return existing;
+        }
+        clazz = clazz.getSuperclass();
+      }
+    } catch (ClassNotFoundException e) {
+      return toString;
+    }
+    return toString;
   }
 
   private static int getInt(ObjectReference object, String accessor, ThreadReference thread) {
