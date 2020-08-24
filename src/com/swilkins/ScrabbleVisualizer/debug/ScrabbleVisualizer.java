@@ -1,6 +1,5 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
-import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Location;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.Value;
@@ -9,7 +8,6 @@ import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.LocatableEvent;
 import com.sun.jdi.event.StepEvent;
-import com.sun.jdi.request.StepRequest;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Tile;
@@ -52,37 +50,7 @@ public class ScrabbleVisualizer extends Debugger {
 
     watchView = new WatchView(new Dimension(screenSize.width / 3, screenSize.height / 3));
 
-    JPanel controls = new JPanel();
-    controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
-    JButton resume = new JButton("Resume");
-    resume.addActionListener(e -> resume());
-    controls.add(resume);
-
-    JButton controlButton;
-
-    controlButton = new JButton("Step Over");
-    controlButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OVER));
-    controls.add(controlButton);
-
-    controlButton = new JButton("Step Into");
-    controlButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_INTO));
-    controls.add(controlButton);
-
-    controlButton = new JButton("Step Out");
-    controlButton.addActionListener(e -> activateStepRequest(StepRequest.STEP_OUT));
-    controls.add(controlButton);
-
-    controlButton = new JButton("Toggle Breakpoint");
-    controlButton.addActionListener(e -> {
-      try {
-        view.toggleBreakpointAt(view.getSelectedLocation());
-      } catch (AbsentInformationException ex) {
-        view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
-      }
-    });
-    controls.add(controlButton);
-
-    panel.add(controls);
+    panel.add(defaultControlPanel);
     panel.add(watchView);
 
     frame.getContentPane().add(panel);
@@ -99,6 +67,10 @@ public class ScrabbleVisualizer extends Debugger {
     view.setMinimumSize(topThird);
     view.setMaximumSize(topThird);
     view.setSize(topThird);
+
+    for (Map.Entry<DefaultDebuggerControl, JButton> defaultControlButton : defaultControlButtons.entrySet()) {
+      defaultControlPanel.add(defaultControlButton.getValue());
+    }
   }
 
   @Override
@@ -113,9 +85,11 @@ public class ScrabbleVisualizer extends Debugger {
               }
             }
     );
-    Set<Class<?>> representedClasses = model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar");
-    assert representedClasses.contains(PermutationTrie.class);
-    model.getDebugClassSourceFor(PermutationTrie.class).addCompileTimeBreakpoints(26);
+    String jarPath = "../lib/scrabble-base-jar-with-dependencies.jar";
+    Set<Class<?>> representedClasses = model.addDebugClassSourcesFromJar(jarPath, null);
+    if (representedClasses.contains(PermutationTrie.class)) {
+      model.getDebugClassSourceFor(PermutationTrie.class).addCompileTimeBreakpoints(26);
+    }
   }
 
   @Override

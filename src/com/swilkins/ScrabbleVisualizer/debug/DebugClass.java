@@ -61,15 +61,13 @@ public class DebugClass {
     return enabledBreakpoints;
   }
 
-  public boolean requestBreakpointAt(int lineNumber) throws AbsentInformationException {
+  public void requestBreakpointAt(int lineNumber) throws AbsentInformationException {
     List<Location> locations = operations.getLocationGetter().getLocations(lineNumber);
-    if (locations.isEmpty()) {
-      return false;
+    if (!locations.isEmpty()) {
+      BreakpointRequest request = operations.getBreakpointRequester().request(locations.get(0));
+      breakpointRequestMap.put(lineNumber, request);
+      request.enable();
     }
-    BreakpointRequest request = operations.getBreakpointRequester().request(locations.get(0));
-    breakpointRequestMap.put(lineNumber, request);
-    request.enable();
-    return true;
   }
 
   public boolean hasBreakpointAt(int lineNumber) {

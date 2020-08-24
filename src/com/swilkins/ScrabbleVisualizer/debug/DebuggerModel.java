@@ -24,28 +24,46 @@ public class DebuggerModel {
     debugClassSources.put(clazz, debugClassSource);
   }
 
-  public Set<Class<?>> addDebugClassSourcesFromJar(String jarPath) throws IOException, ClassNotFoundException {
+  public Set<Class<?>> addDebugClassSourcesFromJar(String jarPath, DebugClassSourceFilter filter) throws IOException, ClassNotFoundException {
     File file = new File(jarPath);
     JarFile jarFile = new JarFile(file);
 
-    Set<Class<?>> representedClasses = new HashSet<>();
+    Map<Class<?>, String> representedClasses = new HashMap<>();
     Enumeration<JarEntry> entries = jarFile.entries();
     while (entries.hasMoreElements()) {
       String entry = entries.nextElement().getRealName();
       if (entry.endsWith(sourceSuffix)) {
         String entryClass = entry.replace("/", ".").replace(sourceSuffix, "");
         Class<?> representedClass = Class.forName(entryClass);
-        representedClasses.add(representedClass);
-        addDebugClassSource(representedClass, new DebugClassSource() {
-          @Override
-          public String getContentsAsString() throws Exception {
-            return inputStreamToString(jarFile.getInputStream(jarFile.getEntry(entry)));
-          }
-        });
+        representedClasses.put(representedClass, entry);
       }
     }
 
-    return representedClasses;
+    if (filter != null) {
+      Set<Class<?>> filteredClasses = filter.getFilteredClasses();
+      Set<Class<?>> excludes;
+
+      Set<Class<?>> representedClassesKeySet = representedClasses.keySet();
+      if (filter.getFilterType() == DebugClassSourceFilterType.INCLUDE) {
+        excludes = new HashSet<>(representedClassesKeySet);
+        excludes.removeAll(filteredClasses);
+      } else {
+        excludes = filteredClasses;
+      }
+
+      representedClassesKeySet.removeAll(excludes);
+    }
+
+    for (Map.Entry<Class<?>, String> representedClass : representedClasses.entrySet()) {
+      addDebugClassSource(representedClass.getKey(), new DebugClassSource() {
+        @Override
+        public String getContentsAsString() throws Exception {
+          return inputStreamToString(jarFile.getInputStream(jarFile.getEntry(representedClass.getValue())));
+        }
+      });
+    }
+
+    return representedClasses.keySet();
   }
 
   public void submitDebugClassSources(EventRequestManager eventRequestManager) {
@@ -71,9 +89,7 @@ public class DebuggerModel {
     DebugClassSource debugClassSource = debugClassSources.get(clazz);
     DebugClass debugClass = new DebugClass(clazz, debugClassSource, operations);
     for (int compileTimeBreakpoint : debugClassSource.getCompileTimeBreakpoints()) {
-      if (!debugClass.requestBreakpointAt(compileTimeBreakpoint)) {
-        System.out.printf("Unable to create breakpoint at line %d in %s\n", compileTimeBreakpoint, clazz.getName());
-      }
+      debugClass.requestBreakpointAt(compileTimeBreakpoint);
     }
     debugClasses.put(clazz, debugClass);
   }

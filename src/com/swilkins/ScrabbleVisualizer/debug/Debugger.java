@@ -7,10 +7,12 @@ import com.sun.jdi.event.*;
 import com.sun.jdi.request.EventRequestManager;
 import com.sun.jdi.request.StepRequest;
 
+import javax.swing.*;
+import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+
+import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
 
 public abstract class Debugger {
 
@@ -19,6 +21,10 @@ public abstract class Debugger {
 
   protected final DebuggerView view;
   protected final DebuggerModel model;
+
+  protected final Map<DefaultDebuggerControl, JButton> defaultControlButtons = new LinkedHashMap<>();
+
+  protected final JPanel defaultControlPanel;
 
   protected ThreadReference threadReference;
   protected StepRequest activeStepRequest;
@@ -32,7 +38,33 @@ public abstract class Debugger {
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
     view = new DebuggerView();
+
+    Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new LinkedHashMap<>();
+    defaultActionListeners.put(RESUME, e -> resume());
+    defaultActionListeners.put(STEP_OVER, e -> activateStepRequest(StepRequest.STEP_OVER));
+    defaultActionListeners.put(STEP_INTO, e -> activateStepRequest(StepRequest.STEP_INTO));
+    defaultActionListeners.put(STEP_OUT, e -> activateStepRequest(StepRequest.STEP_OUT));
+    defaultActionListeners.put(TOGGLE_BREAKPOINT, e -> {
+      try {
+        view.toggleBreakpointAt(view.getSelectedLocation());
+      } catch (AbsentInformationException ex) {
+        view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
+      }
+    });
+
+    defaultControlPanel = new JPanel();
+    defaultControlPanel.setLayout(new BoxLayout(defaultControlPanel, BoxLayout.X_AXIS));
+
+    JButton controlButton;
+    for (Map.Entry<DefaultDebuggerControl, ActionListener> defaultControlButton : defaultActionListeners.entrySet()) {
+      DefaultDebuggerControl control = defaultControlButton.getKey();
+      controlButton = new JButton(control.getLabel());
+      controlButton.addActionListener(defaultControlButton.getValue());
+      defaultControlButtons.put(control, controlButton);
+    }
+
     configureView();
+
     model = new DebuggerModel();
     configureModel();
 

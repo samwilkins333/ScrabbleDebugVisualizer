@@ -23,6 +23,8 @@ public class GeneratorTarget {
     BoardSquare[][] board = Configuration.getStandardBoard();
     GeneratorTarget test = new GeneratorTarget();
     test.test();
+    PackageClass anotherOne = new PackageClass(3);
+    System.out.println(anotherOne);
     board[7][7].setTile(Configuration.getStandardTile('f'));
     board[7][8].setTile(Configuration.getStandardTile('i'));
     board[7][9].setTile(Configuration.getStandardTile('s'));
