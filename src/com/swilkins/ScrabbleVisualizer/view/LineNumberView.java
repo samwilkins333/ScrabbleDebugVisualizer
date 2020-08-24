@@ -356,7 +356,9 @@ public class LineNumberView extends JPanel
           getParent().repaint();
           lastHeight = (int) rect.getY();
         }
-      } catch (BadLocationException e) { e.printStackTrace(); /* nothing to do */ }
+      } catch (BadLocationException e) {
+        e.printStackTrace(); /* nothing to do */
+      }
     });
   }
 
