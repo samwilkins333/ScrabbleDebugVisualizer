@@ -11,6 +11,7 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
@@ -35,7 +36,7 @@ public abstract class Debugger {
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
     view = new DebuggerView();
-    Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new HashMap<>();
+    Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new LinkedHashMap<>();
     defaultActionListeners.put(RESUME, e -> resume());
     defaultActionListeners.put(STEP_OVER, e -> activateStepRequest(StepRequest.STEP_OVER));
     defaultActionListeners.put(STEP_INTO, e -> activateStepRequest(StepRequest.STEP_INTO));
