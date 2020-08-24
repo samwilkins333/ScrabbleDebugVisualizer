@@ -26,7 +26,6 @@ import java.io.InputStream;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.Set;
 
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
@@ -68,21 +67,16 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void configureModel() throws IOException, ClassNotFoundException {
-    model.addDebugClassSource(
-            GeneratorTarget.class,
-            new DebugClassSource(23, 33) {
-              @Override
-              public String getContentsAsString() {
-                InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
-                return inputStreamToString(debugClassStream);
-              }
-            }
-    );
-    String jarPath = "../lib/scrabble-base-jar-with-dependencies.jar";
-    Set<Class<?>> representedClasses = model.addDebugClassSourcesFromJar(jarPath, null);
-    if (representedClasses.contains(PermutationTrie.class)) {
-      model.getDebugClassSourceFor(PermutationTrie.class).addCompileTimeBreakpoints(26);
-    }
+    model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
+    model.addCompileTimeBreakpointsFor(PermutationTrie.class, 26);
+
+    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(23, 34) {
+      @Override
+      public String getContentsAsString() {
+        InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
+        return inputStreamToString(debugClassStream);
+      }
+    });
   }
 
   @Override
