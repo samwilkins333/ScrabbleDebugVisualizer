@@ -113,15 +113,11 @@ public class ScrabbleVisualizer extends Debugger {
     JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
     model.addDebugClassSource(
             Generator.class,
-            new DebugClassSource() {
+            new DebugClassSource(203) {
               @Override
-              public String getContentsAsString() {
-                try {
-                  InputStream debugClassStream = jarFile.getInputStream(generator);
-                  return inputStreamToString(debugClassStream);
-                } catch (IOException e) {
-                  return null;
-                }
+              public String getContentsAsString() throws Exception {
+                InputStream debugClassStream = jarFile.getInputStream(generator);
+                return inputStreamToString(debugClassStream);
               }
             }
     );

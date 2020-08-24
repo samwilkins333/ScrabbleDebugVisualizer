@@ -30,10 +30,11 @@ public class DebuggerView extends JPanel {
     debugClassTextView.addCaretListener(e -> {
       String locationLabelText;
       if (selectedLocation != null) {
-        String selectedClassName = selectedLocation.getDebugClass().getClazz().getName();
+        DebugClass debugClass = selectedLocation.getDebugClass();
         int selectedLineNumber = getDebugClassTextView().getSelectedLineNumber();
-        locationLabelText = String.format("%s: %d", selectedClassName, selectedLineNumber);
+        locationLabelText = String.format("%s: %d", debugClass.getClass().getName(), selectedLineNumber);
         locationLabel.setText(locationLabelText);
+        setSelectedLocation(new DebugClassLocation(debugClass, selectedLineNumber));
       }
     });
 

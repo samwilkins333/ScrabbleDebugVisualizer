@@ -7,7 +7,7 @@ public abstract class DebugClassSource {
     this.compileTimeBreakpoints = compileTimeBreakpoints;
   }
 
-  public abstract String getContentsAsString();
+  public abstract String getContentsAsString() throws Exception;
 
   public int[] getCompileTimeBreakpoints() {
     return compileTimeBreakpoints;

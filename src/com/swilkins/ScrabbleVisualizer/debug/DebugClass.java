@@ -26,7 +26,7 @@ public class DebugClass {
   public void setCached(boolean cached) {
     if (cached) {
       if (cachedContentsString == null) {
-        cachedContentsString = debugClassSource.getContentsAsString();
+        cachedContentsString = getContentsAsStringHelper();
       }
     } else {
       this.cachedContentsString = null;
@@ -35,9 +35,23 @@ public class DebugClass {
 
   public String getContentsAsString() {
     if (this.cachedContentsString == null) {
-      return debugClassSource.getContentsAsString();
+      return getContentsAsStringHelper();
     }
     return cachedContentsString;
+  }
+
+  private String getContentsAsStringHelper() {
+    try {
+      return debugClassSource.getContentsAsString();
+    } catch (Exception e) {
+      String message = String.format(
+              "%s representing %s failed to get contents as String. (%s)",
+              getClass().getName(),
+              clazz.getName(),
+              e
+      );
+      throw new IllegalArgumentException(message);
+    }
   }
 
   public Set<Integer> getEnabledBreakpoints() {
