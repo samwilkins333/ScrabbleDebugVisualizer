@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.debugClass;
+package com.swilkins.ScrabbleViz.debug;
 
 public class DebugClassLocation {
   private DebugClass debugClass;

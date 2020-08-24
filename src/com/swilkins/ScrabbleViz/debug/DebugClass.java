@@ -1,4 +1,4 @@
-package com.swilkins.ScrabbleViz.debugClass;
+package com.swilkins.ScrabbleViz.debug;
 
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Location;

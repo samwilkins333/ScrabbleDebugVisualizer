@@ -2,16 +2,12 @@ package com.swilkins.ScrabbleViz.executable;
 
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
-import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.*;
 import com.sun.jdi.request.EventRequestManager;
 import com.sun.jdi.request.StepRequest;
 import com.swilkins.ScrabbleBase.Generation.Generator;
-import com.swilkins.ScrabbleViz.debugClass.DebugClass;
-import com.swilkins.ScrabbleViz.debugClass.DebugClassLocation;
-import com.swilkins.ScrabbleViz.debugClass.DebugClassSource;
-import com.swilkins.ScrabbleViz.debugClass.DebugClassViewer;
+import com.swilkins.ScrabbleViz.debug.*;
 import com.swilkins.ScrabbleViz.utility.Invokable;
 import com.swilkins.ScrabbleViz.view.WatchView;
 
@@ -30,50 +26,92 @@ import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackVariables;
 import static com.swilkins.ScrabbleViz.utility.Utilities.inputStreamToString;
 import static com.swilkins.ScrabbleViz.utility.Utilities.toClass;
 
-public class ScrabbleViz {
-  private static DebugClassViewer debugClassViewer;
+public class ScrabbleViz extends Debugger {
   private static WatchView watchView;
-  private static final Class<?> mainClass = GeneratorTarget.class;
 
-  private static VirtualMachine vm;
   private static ThreadReference threadReference;
   private static StepRequest activeStepRequest;
 
   private static final Object suspensionLock = new Object();
   private static final Object stepRequestLock = new Object();
 
+  private static Dimension screenSize;
+
+  public ScrabbleViz() throws Exception {
+    super(GeneratorTarget.class);
+  }
+
   public static void main(String[] args) {
     EventQueue.invokeLater(() -> {
-      Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+      screenSize = Toolkit.getDefaultToolkit().getScreenSize();
       JFrame frame = new JFrame(ScrabbleViz.class.getSimpleName());
       frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-      frame.setSize(dimension.width, dimension.height);
+      frame.setSize(screenSize.width, screenSize.height);
+      frame.setResizable(false);
 
       try {
-        populateChildren(frame, dimension);
-      } catch (IOException e) {
+        new ScrabbleViz().populateWatchEnvironment(frame);
+      } catch (Exception e) {
         e.printStackTrace();
       }
 
       frame.setVisible(true);
-      frame.setResizable(false);
     });
   }
 
-  private static void populateChildren(JFrame frame, Dimension dimension) throws IOException {
-    initializeDebugClassViewer();
+  @Override
+  public void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
+    arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
+  }
 
+  @Override
+  public void configureView() {
+    view.setOptions(new DebuggerViewOptions(Color.WHITE, Color.BLACK));
+
+    Dimension topThird = new Dimension(screenSize.width, screenSize.height / 3);
+    view.setPreferredSize(topThird);
+    view.setMinimumSize(topThird);
+    view.setMaximumSize(topThird);
+    view.setSize(topThird);
+  }
+
+  @Override
+  public void configureModel() throws IOException {
+    model.addDebugClassSource(
+            GeneratorTarget.class,
+            new DebugClassSource(22) {
+              @Override
+              public String getContentsAsString() {
+                InputStream debugClassStream = ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java");
+                return inputStreamToString(debugClassStream);
+              }
+            }
+    );
+    File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
+    JarFile jarFile = new JarFile(file);
+    JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
+    model.addDebugClassSource(
+            Generator.class,
+            new DebugClassSource(203) {
+              @Override
+              public String getContentsAsString() {
+                try {
+                  InputStream debugClassStream = jarFile.getInputStream(generator);
+                  return inputStreamToString(debugClassStream);
+                } catch (IOException e) {
+                  return null;
+                }
+              }
+            }
+    );
+  }
+
+  private void populateWatchEnvironment(JFrame frame) {
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    Dimension constraints = new Dimension(dimension.width, dimension.height / 3);
-    debugClassViewer.setPreferredSize(constraints);
-    debugClassViewer.setMinimumSize(constraints);
-    debugClassViewer.setMaximumSize(constraints);
-    debugClassViewer.setSize(constraints);
+    panel.add(view);
 
-    panel.add(debugClassViewer);
-
-    watchView = new WatchView(new Dimension(dimension.width / 3, dimension.height / 3));
+    watchView = new WatchView(new Dimension(screenSize.width / 3, screenSize.height / 3));
 
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
@@ -101,9 +139,9 @@ public class ScrabbleViz {
     controlButton = new JButton("Toggle Breakpoint");
     controlButton.addActionListener(e -> {
       try {
-        debugClassViewer.toggleBreakpointAt(debugClassViewer.getSelectedLocation());
+        view.toggleBreakpointAt(view.getSelectedLocation());
       } catch (AbsentInformationException ex) {
-        debugClassViewer.reportException(ex);
+        view.reportException(ex);
       }
     });
     controls.add(controlButton);
@@ -116,60 +154,32 @@ public class ScrabbleViz {
     new Thread(executeDebugger(onTerminated)).start();
   }
 
-  private static void activateStepRequest(int stepRequestDepth) {
-    synchronized (stepRequestLock) {
-      if (activeStepRequest == null || activeStepRequest.depth() != stepRequestDepth) {
-        deleteActiveStepRequest();
-        activeStepRequest = vm.eventRequestManager().createStepRequest(threadReference, StepRequest.STEP_LINE, stepRequestDepth);
-        activeStepRequest.enable();
-      }
-    }
-    signalDebugger();
-  }
-
-  private static void deleteActiveStepRequest() {
-    synchronized (stepRequestLock) {
-      if (activeStepRequest != null) {
-        activeStepRequest.disable();
-        vm.eventRequestManager().deleteEventRequest(activeStepRequest);
-        activeStepRequest = null;
-      }
-    }
-  }
-
-  public static void signalDebugger() {
-    synchronized (suspensionLock) {
-      suspensionLock.notifyAll();
-    }
-  }
-
-  private static Runnable executeDebugger(Invokable onTerminate) {
+  private Runnable executeDebugger(Invokable onTerminate) {
     return () -> {
       EventSet eventSet;
       try {
-        vm = connectAndLaunchVM();
-        EventRequestManager eventRequestManager = vm.eventRequestManager();
-        debugClassViewer.submitDebugClassSources(eventRequestManager);
-        debugClassViewer.enableExceptionReporting(eventRequestManager, false);
-        while ((eventSet = vm.eventQueue().remove()) != null) {
+        EventRequestManager eventRequestManager = virtualMachine.eventRequestManager();
+        model.submitDebugClassSources(eventRequestManager);
+        model.enableExceptionReporting(eventRequestManager, false);
+        while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
             if (event instanceof LocatableEvent) {
               threadReference = ((LocatableEvent) event).thread();
             }
             if (event instanceof ClassPrepareEvent) {
-              debugClassViewer.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
+              model.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
             } else if (event instanceof ExceptionEvent) {
-              debugClassViewer.reportVirtualMachineException((ExceptionEvent) event);
+              view.reportVirtualMachineException((ExceptionEvent) event);
             } else if (event instanceof BreakpointEvent) {
               deleteActiveStepRequest();
               suspendAndVisit((LocatableEvent) event);
             } else if (event instanceof StepEvent) {
               Class<?> clazz = toClass(((StepEvent) event).location());
-              if (clazz != null && debugClassViewer.getDebugClassFor(clazz) != null) {
+              if (clazz != null && model.getDebugClassFor(clazz) != null) {
                 suspendAndVisit((LocatableEvent) event);
               }
             }
-            vm.resume();
+            virtualMachine.resume();
           }
         }
       } catch (VMDisconnectedException e) {
@@ -180,58 +190,44 @@ public class ScrabbleViz {
     };
   }
 
-  private static VirtualMachine connectAndLaunchVM() throws Exception {
-    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
-    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-    arguments.get("main").setValue(mainClass.getName());
-    arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
-    return launchingConnector.launch(arguments);
+  private void activateStepRequest(int stepRequestDepth) {
+    synchronized (stepRequestLock) {
+      if (activeStepRequest == null || activeStepRequest.depth() != stepRequestDepth) {
+        deleteActiveStepRequest();
+        activeStepRequest = virtualMachine.eventRequestManager().createStepRequest(threadReference, StepRequest.STEP_LINE, stepRequestDepth);
+        activeStepRequest.enable();
+      }
+    }
+    signalDebugger();
   }
 
-  private static void initializeDebugClassViewer() throws IOException {
-    debugClassViewer = new DebugClassViewer(null);
-
-    debugClassViewer.addDebugClassSource(
-            GeneratorTarget.class,
-            new DebugClassSource(22) {
-              @Override
-              public String getContentsAsString() {
-                InputStream debugClassStream = ScrabbleViz.class.getResourceAsStream("GeneratorTarget.java");
-                return inputStreamToString(debugClassStream);
-              }
-            }
-    );
-
-    File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
-    JarFile jarFile = new JarFile(file);
-    JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
-    debugClassViewer.addDebugClassSource(
-            Generator.class,
-            new DebugClassSource(203) {
-              @Override
-              public String getContentsAsString() {
-                try {
-                  InputStream debugClassStream = jarFile.getInputStream(generator);
-                  return inputStreamToString(debugClassStream);
-                } catch (IOException e) {
-                  return null;
-                }
-              }
-            }
-    );
+  private void deleteActiveStepRequest() {
+    synchronized (stepRequestLock) {
+      if (activeStepRequest != null) {
+        activeStepRequest.disable();
+        virtualMachine.eventRequestManager().deleteEventRequest(activeStepRequest);
+        activeStepRequest = null;
+      }
+    }
   }
 
-  private static void suspendAndVisit(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException, ClassNotFoundException {
+  public void signalDebugger() {
+    synchronized (suspensionLock) {
+      suspensionLock.notifyAll();
+    }
+  }
+
+  private void suspendAndVisit(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
     ThreadReference thread = event.thread();
     Location location = event.location();
     Class<?> clazz = toClass(location);
 
-    DebugClass debugClass = debugClassViewer.getDebugClassFor(clazz);
+    DebugClass debugClass = model.getDebugClassFor(clazz);
     if (debugClass == null) {
       return;
     }
     DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, location.lineNumber());
-    debugClassViewer.setSelectedLocation(selectedLocation);
+    view.setSelectedLocation(selectedLocation);
     watchView.updateFrom(location, unpackVariables(thread));
     synchronized (suspensionLock) {
       try {

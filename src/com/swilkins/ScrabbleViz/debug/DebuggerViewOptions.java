@@ -1,27 +1,27 @@
-package com.swilkins.ScrabbleViz.debugClass;
+package com.swilkins.ScrabbleViz.debug;
 
 import java.awt.*;
 
-public class DebugClassViewerOptions {
+public class DebuggerViewOptions {
 
   private Color textColor;
   private Color backgroundColor;
   private Color selectedLocationColor;
   private Color breakpointColor;
 
-  public DebugClassViewerOptions(Color textColor, Color backgroundColor, Color selectedLocationColor, Color breakpointColor) {
+  public DebuggerViewOptions(Color textColor, Color backgroundColor, Color selectedLocationColor, Color breakpointColor) {
     this.textColor = textColor;
     this.backgroundColor = backgroundColor;
     this.selectedLocationColor = selectedLocationColor;
     this.breakpointColor = breakpointColor;
   }
 
-  public DebugClassViewerOptions(Color textColor, Color backgroundColor) {
+  public DebuggerViewOptions(Color textColor, Color backgroundColor) {
     this.textColor = textColor;
     this.backgroundColor = backgroundColor;
   }
 
-  public DebugClassViewerOptions() {
+  public DebuggerViewOptions() {
 
   }
 

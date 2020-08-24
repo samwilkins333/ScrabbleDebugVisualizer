@@ -1,12 +1,8 @@
-package com.swilkins.ScrabbleViz.debugClass;
+package com.swilkins.ScrabbleViz.debug;
 
 import com.sun.jdi.AbsentInformationException;
-import com.sun.jdi.ClassType;
-import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.event.ExceptionEvent;
-import com.sun.jdi.request.ClassPrepareRequest;
-import com.sun.jdi.request.EventRequestManager;
-import com.swilkins.ScrabbleViz.view.LineNumberViewer;
+import com.swilkins.ScrabbleViz.view.LineNumberView;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,33 +10,31 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.*;
+import java.util.Objects;
 
 import static com.swilkins.ScrabbleViz.utility.Unpackers.unpackReference;
 
-public class DebugClassViewer extends JPanel {
-  private final Map<Class<?>, DebugClass> debugClasses = new HashMap<>();
-  private final Map<Class<?>, DebugClassSource> debugClassSources = new HashMap<>();
+public class DebuggerView extends JPanel {
   private final DebugClassTextView debugClassTextView;
   private final JLabel locationLabel = new JLabel(" ");
   private DebugClassLocation selectedLocation;
 
-  public DebugClassViewer(DebugClassViewerOptions options) {
+  public DebuggerView() {
     super();
+
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
-    debugClassTextView = new DebugClassTextView(options);
+    debugClassTextView = new DebugClassTextView();
     debugClassTextView.addCaretListener(e -> {
       String locationLabelText;
-      if (selectedLocation == null) {
-        locationLabelText = "?: ?";
-      } else {
+      if (selectedLocation != null) {
         String selectedClassName = selectedLocation.getDebugClass().getClazz().getName();
         int selectedLineNumber = getDebugClassTextView().getSelectedLineNumber();
         locationLabelText = String.format("%s: %d", selectedClassName, selectedLineNumber);
+        locationLabel.setText(locationLabelText);
       }
-      locationLabel.setText(locationLabelText);
     });
 
     JPanel header = new JPanel();
@@ -53,8 +47,12 @@ public class DebugClassViewer extends JPanel {
     scrollWrapper.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
     scrollWrapper.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
     scrollWrapper.setWheelScrollingEnabled(false);
-    scrollWrapper.setRowHeaderView(debugClassTextView.lineNumberViewer);
+    scrollWrapper.setRowHeaderView(debugClassTextView.lineNumberView);
     add(scrollWrapper);
+  }
+
+  public void setOptions(DebuggerViewOptions options) {
+    debugClassTextView.setOptions(Objects.requireNonNullElseGet(options, DebuggerViewOptions::new));
   }
 
   public DebugClassLocation getSelectedLocation() {
@@ -64,10 +62,6 @@ public class DebugClassViewer extends JPanel {
   public void setSelectedLocation(DebugClassLocation updatedLocation) {
     DebugClass updatedDebugClass = updatedLocation.getDebugClass();
     if (selectedLocation == null || updatedDebugClass != selectedLocation.getDebugClass()) {
-      if (!debugClasses.containsValue(updatedDebugClass)) {
-        throw new IllegalArgumentException("No DebugClass exists for " +
-                updatedDebugClass.getClazz().getName());
-      }
       debugClassTextView.setText(updatedDebugClass.getContentsAsString());
       debugClassTextView.repaintWith(updatedDebugClass);
     }
@@ -119,44 +113,6 @@ public class DebugClassViewer extends JPanel {
     return debugClassTextView;
   }
 
-  public void addDebugClassSource(Class<?> clazz, DebugClassSource debugClassSource) {
-    debugClassSources.put(clazz, debugClassSource);
-  }
-
-  public void submitDebugClassSources(EventRequestManager eventRequestManager) {
-    for (Class<?> clazz : debugClassSources.keySet()) {
-      ClassPrepareRequest request = eventRequestManager.createClassPrepareRequest();
-      request.addClassFilter(clazz.getName());
-      request.enable();
-    }
-  }
-
-  public void enableExceptionReporting(EventRequestManager eventRequestManager, boolean notifyCaught) {
-    eventRequestManager.createExceptionRequest(null, notifyCaught, true).enable();
-  }
-
-  public void createDebugClassFor(EventRequestManager eventRequestManager, ClassPrepareEvent event) throws ClassNotFoundException, AbsentInformationException {
-    ClassType classType = (ClassType) event.referenceType();
-    Class<?> clazz = Class.forName(classType.name());
-    DebugClassOperations operations = new DebugClassOperations(
-            classType::locationsOfLine,
-            eventRequestManager::createBreakpointRequest,
-            eventRequestManager::deleteEventRequest
-    );
-    DebugClassSource debugClassSource = debugClassSources.get(clazz);
-    DebugClass debugClass = new DebugClass(clazz, debugClassSource, operations);
-    for (int compileTimeBreakpoint : debugClassSource.getCompileTimeBreakpoints()) {
-      if (!debugClass.requestBreakpointAt(compileTimeBreakpoint)) {
-        System.out.printf("Unable to create breakpoint at line %d in %s\n", compileTimeBreakpoint, clazz.getName());
-      }
-    }
-    debugClasses.put(clazz, debugClass);
-  }
-
-  public DebugClass getDebugClassFor(Class<?> clazz) {
-    return debugClasses.get(clazz);
-  }
-
 
   public void reportVirtualMachineException(ExceptionEvent event) {
     Object exception = unpackReference(event.thread(), event.exception());
@@ -168,13 +124,20 @@ public class DebugClassViewer extends JPanel {
   }
 
   public static class DebugClassTextView extends JTextArea {
-    private final DebugClassViewerOptions options;
+    private DebuggerViewOptions options = new DebuggerViewOptions();
     private List<Rectangle2D> breakpointViews = new ArrayList<>();
-    private final LineNumberViewer lineNumberViewer;
+    private final LineNumberView lineNumberView;
 
-    public DebugClassTextView(DebugClassViewerOptions options) {
+    public DebugClassTextView() {
       super();
-      this.options = options = Objects.requireNonNullElseGet(options, DebugClassViewerOptions::new);
+      setOpaque(false);
+      setEditable(false);
+      setHighlighter(null);
+      lineNumberView = new LineNumberView(this);
+    }
+
+    public void setOptions(DebuggerViewOptions options) {
+      this.options = options;
       Color textColor = options.getTextColor();
       if (textColor != null) {
         setForeground(textColor);
@@ -183,14 +146,12 @@ public class DebugClassViewer extends JPanel {
       if (backgroundColor != null) {
         setBackground(backgroundColor);
       }
-      setOpaque(false);
-      setEditable(false);
-      setHighlighter(null);
-      lineNumberViewer = new LineNumberViewer(this);
+      lineNumberView.repaint();
+      repaint();
     }
 
     public void repaintWith(DebugClass debugClass) {
-      lineNumberViewer.setBreakpointLines(debugClass);
+      lineNumberView.setBreakpointLines(debugClass);
       breakpointViews.clear();
       for (int lineNumber : debugClass.getEnabledBreakpoints()) {
         try {

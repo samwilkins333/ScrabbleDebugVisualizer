@@ -1,6 +1,6 @@
 package com.swilkins.ScrabbleViz.view;
 
-import com.swilkins.ScrabbleViz.debugClass.DebugClass;
+import com.swilkins.ScrabbleViz.debug.DebugClass;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -28,7 +28,7 @@ import java.util.Set;
  * This class was designed to be used as a component added to the row header
  * of a JScrollPane.
  */
-public class LineNumberViewer extends JPanel
+public class LineNumberView extends JPanel
         implements CaretListener, DocumentListener, PropertyChangeListener {
   public final static float LEFT = 0.0f;
   public final static float CENTER = 0.5f;
@@ -63,7 +63,7 @@ public class LineNumberViewer extends JPanel
    *
    * @param component the related text component
    */
-  public LineNumberViewer(JTextComponent component) {
+  public LineNumberView(JTextComponent component) {
     this(component, 3);
   }
 
@@ -74,7 +74,7 @@ public class LineNumberViewer extends JPanel
    * @param minimumDisplayDigits the number of digits used to calculate
    *                             the minimum width of the component
    */
-  public LineNumberViewer(JTextComponent component, int minimumDisplayDigits) {
+  public LineNumberView(JTextComponent component, int minimumDisplayDigits) {
     this.component = component;
 
     setFont(component.getFont());
