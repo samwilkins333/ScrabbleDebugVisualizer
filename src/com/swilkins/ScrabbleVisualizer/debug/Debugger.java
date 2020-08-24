@@ -99,6 +99,11 @@ public abstract class Debugger {
     }
   }
 
+  protected void resume() {
+    deleteActiveStepRequest();
+    resumeEventProcessing();
+  }
+
   protected void suspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
     ThreadReference thread = event.thread();
     Location location = event.location();
@@ -124,9 +129,8 @@ public abstract class Debugger {
     onVirtualMachineContinuation();
   }
 
-  protected void resumeEventProcessing() {
+  private void resumeEventProcessing() {
     synchronized (eventProcessingControl) {
-      deleteActiveStepRequest();
       eventProcessingControl.notifyAll();
     }
   }

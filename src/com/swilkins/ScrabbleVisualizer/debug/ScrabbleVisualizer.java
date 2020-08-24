@@ -47,7 +47,7 @@ public class ScrabbleVisualizer extends Debugger {
     JPanel controls = new JPanel();
     controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
     JButton resume = new JButton("Resume");
-    resume.addActionListener(e -> resumeEventProcessing());
+    resume.addActionListener(e -> resume());
     controls.add(resume);
 
     JButton controlButton;
