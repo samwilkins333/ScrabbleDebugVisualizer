@@ -18,8 +18,10 @@ import static com.swilkins.ScrabbleVisualizer.utility.Unpackers.unpackReference;
 
 public class DebuggerView extends JPanel {
   private final DebugClassTextView debugClassTextView;
+  private final JScrollPane scrollWrapper;
   private final JLabel locationLabel = new JLabel(" ");
   private DebugClassLocation selectedLocation;
+  private boolean isCenteringPreservedOnClick = false;
 
   public DebuggerView() {
     super();
@@ -34,7 +36,12 @@ public class DebuggerView extends JPanel {
         int selectedLineNumber = getDebugClassTextView().getSelectedLineNumber();
         locationLabelText = String.format("%s: %d", debugClass.getClass().getName(), selectedLineNumber);
         locationLabel.setText(locationLabelText);
-        setSelectedLocation(new DebugClassLocation(debugClass, selectedLineNumber));
+        DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, selectedLineNumber);
+        if (isCenteringPreservedOnClick) {
+          setSelectedLocation(selectedLocation);
+        } else {
+          this.selectedLocation = selectedLocation;
+        }
       }
     });
 
@@ -44,16 +51,23 @@ public class DebuggerView extends JPanel {
     locationLabel.setBorder(new EmptyBorder(5, 0, 5, 0));
     add(header);
 
-    JScrollPane scrollWrapper = new JScrollPane(debugClassTextView);
-    scrollWrapper.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
-    scrollWrapper.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    scrollWrapper.setWheelScrollingEnabled(false);
+    scrollWrapper = new JScrollPane(debugClassTextView);
     scrollWrapper.setRowHeaderView(debugClassTextView.lineNumberView);
     add(scrollWrapper);
   }
 
   public void setOptions(DebuggerViewOptions options) {
-    debugClassTextView.setOptions(Objects.requireNonNullElseGet(options, DebuggerViewOptions::new));
+    DebuggerViewOptions resolvedOptions = Objects.requireNonNullElseGet(options, DebuggerViewOptions::new);
+    debugClassTextView.setOptions(resolvedOptions);
+
+    isCenteringPreservedOnClick = options.isCenteringPreservedOnClick();
+
+    boolean isScrollable = resolvedOptions.isScrollable();
+    scrollWrapper.setWheelScrollingEnabled(isScrollable);
+    if (!isScrollable) {
+      scrollWrapper.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+      scrollWrapper.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    }
   }
 
   public DebugClassLocation getSelectedLocation() {
@@ -139,14 +153,8 @@ public class DebuggerView extends JPanel {
 
     public void setOptions(DebuggerViewOptions options) {
       this.options = options;
-      Color textColor = options.getTextColor();
-      if (textColor != null) {
-        setForeground(textColor);
-      }
-      Color backgroundColor = options.getBackgroundColor();
-      if (backgroundColor != null) {
-        setBackground(backgroundColor);
-      }
+      setForeground(options.getTextColor());
+      setBackground(options.getBackgroundColor());
       lineNumberView.repaint();
       repaint();
     }
@@ -170,20 +178,12 @@ public class DebuggerView extends JPanel {
     protected void paintComponent(Graphics g) {
       g.setColor(getBackground());
       g.fillRect(0, 0, getWidth(), getHeight());
-
       Color breakpointColor = options.getBreakpointColor();
-      if (breakpointColor == null) {
-        breakpointColor = Color.RED;
-      }
-      Color selectedLocationColor = options.getSelectedLocationColor();
-      if (selectedLocationColor == null) {
-        selectedLocationColor = Color.CYAN;
-      }
       try {
         for (Rectangle2D breakpointView : breakpointViews) {
           paintRectangle(g, breakpointView, breakpointColor);
         }
-        paintRectangle(g, modelToView2D(getCaretPosition()), selectedLocationColor);
+        paintRectangle(g, modelToView2D(getCaretPosition()), options.getSelectedLocationColor());
       } catch (BadLocationException e) {
         e.printStackTrace();
       }

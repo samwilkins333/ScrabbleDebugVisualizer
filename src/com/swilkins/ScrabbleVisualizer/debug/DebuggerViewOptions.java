@@ -4,10 +4,29 @@ import java.awt.*;
 
 public class DebuggerViewOptions {
 
-  private Color textColor;
-  private Color backgroundColor;
-  private Color selectedLocationColor;
-  private Color breakpointColor;
+  private Color textColor = Color.BLACK;
+  private Color backgroundColor = Color.WHITE;
+  private Color selectedLocationColor = Color.CYAN;
+  private Color breakpointColor = Color.RED;
+
+  private boolean isScrollable = true;
+  private boolean centeringPreservedOnClick = false;
+
+  public boolean isCenteringPreservedOnClick() {
+    return centeringPreservedOnClick;
+  }
+
+  public void setCenteringPreservedOnClick(boolean centeringPreservedOnClick) {
+    this.centeringPreservedOnClick = centeringPreservedOnClick;
+  }
+
+  public boolean isScrollable() {
+    return isScrollable;
+  }
+
+  public void setScrollable(boolean scrollable) {
+    isScrollable = scrollable;
+  }
 
   public DebuggerViewOptions(Color textColor, Color backgroundColor, Color selectedLocationColor, Color breakpointColor) {
     this.textColor = textColor;
