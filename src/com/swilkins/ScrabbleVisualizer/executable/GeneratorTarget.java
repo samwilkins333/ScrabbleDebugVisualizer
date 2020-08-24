@@ -11,11 +11,18 @@ import java.net.URL;
 
 public class GeneratorTarget {
 
+  private final String _variable;
+
+  public GeneratorTarget() {
+    _variable = "hello world!";
+  }
+
   public static void main(String[] args) {
     Rack rack = new Rack(Configuration.STANDARD_RACK_CAPACITY);
     rack.addAllFromLetters("ab*e");
     BoardSquare[][] board = Configuration.getStandardBoard();
-    test();
+    GeneratorTarget test = new GeneratorTarget();
+    test.test();
     board[7][7].setTile(Configuration.getStandardTile('f'));
     board[7][8].setTile(Configuration.getStandardTile('i'));
     board[7][9].setTile(Configuration.getStandardTile('s'));
@@ -28,8 +35,8 @@ public class GeneratorTarget {
     System.out.println(result.get(0));
   }
 
-  private static void test() {
-    System.out.println("hello world!");
+  private void test() {
+    System.out.println(_variable);
   }
 
 }

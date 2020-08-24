@@ -48,7 +48,7 @@ public abstract class Debugger {
 
   protected abstract void configureView();
 
-  protected abstract void configureModel() throws IOException;
+  protected abstract void configureModel() throws IOException, ClassNotFoundException;
 
   protected abstract void configureDeserializers();
 

@@ -16,21 +16,19 @@ import com.swilkins.ScrabbleBase.Board.State.Tile;
 import com.swilkins.ScrabbleBase.Generation.Candidate;
 import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
-import com.swilkins.ScrabbleBase.Generation.Generator;
+import com.swilkins.ScrabbleBase.Vocabulary.PermutationTrie;
 import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
 import com.swilkins.ScrabbleVisualizer.view.WatchView;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowEvent;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
+import java.util.Set;
 
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
@@ -104,10 +102,10 @@ public class ScrabbleVisualizer extends Debugger {
   }
 
   @Override
-  protected void configureModel() throws IOException {
+  protected void configureModel() throws IOException, ClassNotFoundException {
     model.addDebugClassSource(
             GeneratorTarget.class,
-            new DebugClassSource(15, 27) {
+            new DebugClassSource(23, 34) {
               @Override
               public String getContentsAsString() {
                 InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
@@ -115,19 +113,9 @@ public class ScrabbleVisualizer extends Debugger {
               }
             }
     );
-    File file = new File("../lib/scrabble-base-jar-with-dependencies.jar");
-    JarFile jarFile = new JarFile(file);
-    JarEntry generator = jarFile.getJarEntry("com/swilkins/ScrabbleBase/Generation/Generator.java");
-    model.addDebugClassSource(
-            Generator.class,
-            new DebugClassSource(203) {
-              @Override
-              public String getContentsAsString() throws Exception {
-                InputStream debugClassStream = jarFile.getInputStream(generator);
-                return inputStreamToString(debugClassStream);
-              }
-            }
-    );
+    Set<Class<?>> representedClasses = model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar");
+    assert representedClasses.contains(PermutationTrie.class);
+    model.getDebugClassSourceFor(PermutationTrie.class).addCompileTimeBreakpoints(26);
   }
 
   @Override
