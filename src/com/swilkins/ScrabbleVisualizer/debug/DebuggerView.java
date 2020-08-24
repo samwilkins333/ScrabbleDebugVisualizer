@@ -86,8 +86,10 @@ public class DebuggerView extends JPanel {
     }
   }
 
-  public void addDefaultControlButton(DefaultDebuggerControl control) {
-    defaultControlPanel.add(defaultControlButtons.get(control));
+  public JButton addDefaultControlButton(DefaultDebuggerControl control) {
+    JButton controlButton = defaultControlButtons.get(control);
+    defaultControlPanel.add(controlButton);
+    return controlButton;
   }
 
   public JButton getDefaultControlButton(DefaultDebuggerControl control) {

@@ -66,15 +66,10 @@ public class ScrabbleVisualizer extends Debugger {
     view.setSize(topThird);
 
     for (DefaultDebuggerControl control : DefaultDebuggerControl.values()) {
-      view.addDefaultControlButton(control);
-      attachIconFor(control);
+      JButton controlButton = view.addDefaultControlButton(control);
+      URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
+      controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
     }
-  }
-
-  private void attachIconFor(DefaultDebuggerControl control) {
-    URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
-    ImageIcon controlIcon = createImageIconFrom(iconUrl, ICON_DIMENSION);
-    view.getDefaultControlButton(control).setIcon(controlIcon);
   }
 
   @Override
