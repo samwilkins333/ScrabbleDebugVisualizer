@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 
-import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
@@ -80,7 +79,7 @@ public class ScrabbleVisualizer extends Debugger {
     view.setMaximumSize(topThird);
     view.setSize(topThird);
 
-    for (DefaultDebuggerControl control : new DefaultDebuggerControl[]{RUN, STEP_OVER, TOGGLE_BREAKPOINT}) {
+    for (DefaultDebuggerControl control : DefaultDebuggerControl.values()) {
       JButton controlButton = view.addDefaultControlButton(control);
       URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
       controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
