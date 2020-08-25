@@ -38,7 +38,7 @@ public class DebuggerView extends JPanel {
       if (selectedLocation != null) {
         DebugClass debugClass = selectedLocation.getDebugClass();
         int selectedLineNumber = getDebugClassTextView().getSelectedLineNumber();
-        locationLabelText = String.format("%s: %d", debugClass.getClass().getName(), selectedLineNumber);
+        locationLabelText = String.format("%s: %d", debugClass.getClazz().getName(), selectedLineNumber);
         locationLabel.setText(locationLabelText);
         DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, selectedLineNumber);
         if (isCenteringPreservedOnClick) {

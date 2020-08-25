@@ -26,7 +26,8 @@ public class DebuggerModel {
   private static final String javaSuffix = ".java";
 
   public DebugClassSource addDebugClassSource(Class<?> clazz, DebugClassSource debugClassSource) {
-    return debugClassSources.put(clazz, debugClassSource);
+    debugClassSources.put(clazz, debugClassSource);
+    return debugClassSource;
   }
 
   private Class<?> sourceToClass(String source) throws ClassNotFoundException {

@@ -135,8 +135,9 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineEvent(Event event) throws Exception {
+    System.out.println(event);
     if (event instanceof BreakpointEvent) {
-      deleteActiveStepRequest();
+      disableActiveStepRequest();
       suspend((LocatableEvent) event);
     } else if (event instanceof StepEvent) {
       Class<?> clazz = toClass(((StepEvent) event).location());

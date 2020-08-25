@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static com.sun.jdi.request.StepRequest.STEP_LINE;
 import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
@@ -26,7 +27,8 @@ public abstract class Debugger {
   protected final DebuggerModel model;
 
   protected ThreadReference threadReference;
-  protected StepRequest activeStepRequest;
+  private final Map<Integer, StepRequest> stepRequestMap = new HashMap<>(3);
+  protected Integer activeStepRequestDepth;
 
   protected final Object eventProcessingControl = new Object();
   protected final Object stepRequestLock = new Object();
@@ -46,7 +48,6 @@ public abstract class Debugger {
     defaultActionListeners.put(RUN, e -> {
       if (!started) {
         start();
-        started = true;
       } else {
         resume();
       }
@@ -94,60 +95,71 @@ public abstract class Debugger {
   protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
 
   private void start() {
-    new Thread(() -> {
-      model.submitDebugClassSources(eventRequestManager);
-      model.enableExceptionReporting(eventRequestManager, false);
-      EventSet eventSet;
-      try {
-        while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
-          for (Event event : eventSet) {
-            if (event instanceof LocatableEvent) {
-              threadReference = ((LocatableEvent) event).thread();
+    if (!started) {
+      started = true;
+      new Thread(() -> {
+        model.submitDebugClassSources(eventRequestManager);
+        model.enableExceptionReporting(eventRequestManager, false);
+        EventSet eventSet;
+        try {
+          while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
+            for (Event event : eventSet) {
+              if (event instanceof LocatableEvent) {
+                threadReference = ((LocatableEvent) event).thread();
+              }
+              if (event instanceof ClassPrepareEvent) {
+                model.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
+              } else if (event instanceof ExceptionEvent) {
+                ExceptionEvent exceptionEvent = (ExceptionEvent) event;
+                Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
+                view.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
+              }
+              onVirtualMachineEvent(event);
             }
-            if (event instanceof ClassPrepareEvent) {
-              model.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
-            } else if (event instanceof ExceptionEvent) {
-              ExceptionEvent exceptionEvent = (ExceptionEvent) event;
-              Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
-              view.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
-            }
-            onVirtualMachineEvent(event);
           }
+        } catch (VMDisconnectedException e) {
+          onVirtualMachineTermination(
+                  inputStreamToString(virtualMachine.process().getInputStream()),
+                  inputStreamToString(virtualMachine.process().getErrorStream())
+          );
+        } catch (Exception e) {
+          e.printStackTrace();
         }
-      } catch (VMDisconnectedException e) {
-        onVirtualMachineTermination(
-                inputStreamToString(virtualMachine.process().getInputStream()),
-                inputStreamToString(virtualMachine.process().getErrorStream())
-        );
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }).start();
+      }).start();
+    }
   }
 
   protected void activateStepRequest(int stepRequestDepth) {
     synchronized (stepRequestLock) {
-      if (activeStepRequest == null || activeStepRequest.depth() != stepRequestDepth) {
-        deleteActiveStepRequest();
-        activeStepRequest = virtualMachine.eventRequestManager().createStepRequest(threadReference, StepRequest.STEP_LINE, stepRequestDepth);
-        activeStepRequest.enable();
+      if (activeStepRequestDepth == null || activeStepRequestDepth != stepRequestDepth) {
+        disableActiveStepRequest();
+        StepRequest requestedStepRequest = stepRequestMap.get(stepRequestDepth);
+        if (requestedStepRequest == null) {
+          requestedStepRequest = eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
+          stepRequestMap.put(stepRequestDepth, requestedStepRequest);
+        }
+        requestedStepRequest.enable();
+        activeStepRequestDepth = stepRequestDepth;
       }
     }
     resumeEventProcessing();
   }
 
-  protected void deleteActiveStepRequest() {
+  protected void disableActiveStepRequest() {
     synchronized (stepRequestLock) {
-      if (activeStepRequest != null) {
-        activeStepRequest.disable();
-        virtualMachine.eventRequestManager().deleteEventRequest(activeStepRequest);
-        activeStepRequest = null;
+      if (activeStepRequestDepth != null) {
+        StepRequest activeStepRequest = stepRequestMap.get(activeStepRequestDepth);
+        if (activeStepRequest != null) {
+          activeStepRequest.disable();
+        }
+        activeStepRequestDepth = null;
       }
     }
   }
 
   protected void resume() {
-    deleteActiveStepRequest();
+    disableActiveStepRequest();
+    System.out.println(activeStepRequestDepth);
     resumeEventProcessing();
   }
 

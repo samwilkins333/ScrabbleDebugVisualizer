@@ -241,6 +241,8 @@ public class WatchView extends JPanel {
       cell.setText("");
       cell.setBackground(Color.WHITE);
     }
+    rawWatchedName.setText("");
+    rawWatchedValue.setText("");
     for (int i = 0; i < STANDARD_RACK_CAPACITY; i++) {
       rack[i].setText("");
     }
