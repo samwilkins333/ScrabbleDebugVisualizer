@@ -25,8 +25,8 @@ public class DebuggerModel {
   private final Map<Class<?>, DebugClass> debugClasses = new HashMap<>();
   private static final String javaSuffix = ".java";
 
-  public void addDebugClassSource(Class<?> clazz, DebugClassSource debugClassSource) {
-    debugClassSources.put(clazz, debugClassSource);
+  public DebugClassSource addDebugClassSource(Class<?> clazz, DebugClassSource debugClassSource) {
+    return debugClassSources.put(clazz, debugClassSource);
   }
 
   private Class<?> sourceToClass(String source) throws ClassNotFoundException {
@@ -35,15 +35,6 @@ public class DebuggerModel {
       return Class.forName(entryClass);
     }
     return null;
-  }
-
-  public boolean addCompileTimeBreakpointsFor(Class<?> clazz, int... compileTimeBreakpoints) {
-    DebugClassSource debugClassSource = debugClassSources.get(clazz);
-    if (debugClassSource != null) {
-      debugClassSource.addCompileTimeBreakpoints(compileTimeBreakpoints);
-      return true;
-    }
-    return false;
   }
 
   public Set<Class<?>> addDebugClassSourcesFromJar(String jarPath, DebugClassSourceFilter filter) throws IOException, ClassNotFoundException {
@@ -55,7 +46,7 @@ public class DebuggerModel {
     while (entries.hasMoreElements()) {
       sources.add(entries.nextElement().getRealName());
     }
-    return processSourcesList(sources, filter, source -> new DebugClassSource() {
+    return processSourcesList(sources, filter, source -> new DebugClassSource(false) {
       @Override
       public String getContentsAsString() throws Exception {
         return inputStreamToString(jarFile.getInputStream(jarFile.getEntry(source)));
@@ -69,7 +60,7 @@ public class DebuggerModel {
       throw new IllegalArgumentException();
     }
     List<String> sources = Files.list(directory.toPath()).map(Path::toString).collect(Collectors.toList());
-    return processSourcesList(sources, filter, source -> new DebugClassSource() {
+    return processSourcesList(sources, filter, source -> new DebugClassSource(false) {
       @Override
       public String getContentsAsString() throws Exception {
         return inputStreamToString(new FileInputStream(new File(source)));
@@ -131,6 +122,7 @@ public class DebuggerModel {
     );
     DebugClassSource debugClassSource = debugClassSources.get(clazz);
     DebugClass debugClass = new DebugClass(clazz, debugClassSource, operations);
+    debugClass.setCached(debugClassSource.isCached());
     for (int compileTimeBreakpoint : debugClassSource.getCompileTimeBreakpoints()) {
       debugClass.requestBreakpointAt(compileTimeBreakpoint);
     }
