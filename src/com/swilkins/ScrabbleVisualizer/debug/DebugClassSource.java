@@ -6,7 +6,7 @@ import java.util.List;
 public abstract class DebugClassSource {
 
   private final List<Integer> compileTimeBreakpoints = new ArrayList<>();
-  private boolean cached = false;
+  private boolean cached;
 
   public DebugClassSource(boolean cached, int... compileTimeBreakpoints) {
     this.cached = cached;
@@ -19,8 +19,9 @@ public abstract class DebugClassSource {
     return compileTimeBreakpoints;
   }
 
-  public void addCompileTimeBreakpoints(int... compileTimeBreakpoints) {
+  public DebugClassSource addCompileTimeBreakpoints(int... compileTimeBreakpoints) {
     addCompileTimeBreakpointsHelper(compileTimeBreakpoints);
+    return this;
   }
 
   private void addCompileTimeBreakpointsHelper(int... compileTimeBreakpoints) {
@@ -29,8 +30,9 @@ public abstract class DebugClassSource {
     }
   }
 
-  public void setCached(boolean cached) {
+  public DebugClassSource setCached(boolean cached) {
     this.cached = cached;
+    return this;
   }
 
   public boolean isCached() {

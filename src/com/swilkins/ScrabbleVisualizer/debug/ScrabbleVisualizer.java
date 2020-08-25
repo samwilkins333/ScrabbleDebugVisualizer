@@ -75,9 +75,7 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void configureModel() throws IOException, ClassNotFoundException {
     model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    DebugClassSource debugClassSource = model.getDebugClassSourceFor(PermutationTrie.class);
-    debugClassSource.addCompileTimeBreakpoints(26);
-    debugClassSource.setCached(true);
+    model.getDebugClassSourceFor(PermutationTrie.class).setCached(true).addCompileTimeBreakpoints(26);
 
     model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 23, 37) {
       @Override
