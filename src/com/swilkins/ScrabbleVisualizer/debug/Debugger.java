@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
+import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public abstract class Debugger {
 
@@ -78,7 +79,7 @@ public abstract class Debugger {
 
   protected abstract void onVirtualMachineContinuation();
 
-  protected abstract void onVirtualMachineTermination();
+  protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
 
   public void start() {
     new Thread(() -> {
@@ -102,7 +103,10 @@ public abstract class Debugger {
           }
         }
       } catch (VMDisconnectedException e) {
-        onVirtualMachineTermination();
+        onVirtualMachineTermination(
+                inputStreamToString(virtualMachine.process().getInputStream()),
+                inputStreamToString(virtualMachine.process().getErrorStream())
+        );
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -144,8 +148,7 @@ public abstract class Debugger {
     if (debugClass == null) {
       return;
     }
-    DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, location.lineNumber());
-    view.setSelectedLocation(selectedLocation);
+    view.setSelectedLocation(new DebugClassLocation(debugClass, location.lineNumber()));
 
     onVirtualMachineSuspension(location, deserializeVariables(thread));
 

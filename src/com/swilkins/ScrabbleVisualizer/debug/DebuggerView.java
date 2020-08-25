@@ -59,6 +59,7 @@ public class DebuggerView extends JPanel {
 
     defaultControlPanel = new JPanel();
     defaultControlPanel.setLayout(new BoxLayout(defaultControlPanel, BoxLayout.X_AXIS));
+    defaultControlPanel.setBorder(new EmptyBorder(5, 0, 5, 0));
     add(defaultControlPanel);
   }
 
@@ -90,10 +91,6 @@ public class DebuggerView extends JPanel {
     JButton controlButton = defaultControlButtons.get(control);
     defaultControlPanel.add(controlButton);
     return controlButton;
-  }
-
-  public JButton getDefaultControlButton(DefaultDebuggerControl control) {
-    return defaultControlButtons.get(control);
   }
 
   public DebugClassLocation getSelectedLocation() {

@@ -43,7 +43,7 @@ public class ScrabbleVisualizer extends Debugger {
 
     frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setSize(screenSize.width, screenSize.height);
+    frame.setSize(screenSize.width, screenSize.height - 60);
     frame.setResizable(false);
 
     JPanel panel = new JPanel();
@@ -77,7 +77,7 @@ public class ScrabbleVisualizer extends Debugger {
     model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
     model.addCompileTimeBreakpointsFor(PermutationTrie.class, 26);
 
-    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(23, 34) {
+    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(23, 37) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
@@ -158,7 +158,8 @@ public class ScrabbleVisualizer extends Debugger {
   }
 
   @Override
-  protected void onVirtualMachineTermination() {
+  protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
+    System.out.println(virtualMachineOut);
     frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
   }
 
