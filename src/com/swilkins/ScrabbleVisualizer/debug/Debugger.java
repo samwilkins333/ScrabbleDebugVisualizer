@@ -4,7 +4,6 @@ import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.*;
-import com.sun.jdi.request.EventRequestManager;
 import com.sun.jdi.request.StepRequest;
 
 import java.awt.event.ActionListener;
@@ -14,14 +13,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.sun.jdi.request.StepRequest.STEP_LINE;
 import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public abstract class Debugger {
 
   protected final VirtualMachine virtualMachine;
-  protected final EventRequestManager eventRequestManager;
 
   protected final DebuggerView view;
   protected final DebuggerModel model;
@@ -40,7 +37,14 @@ public abstract class Debugger {
   private boolean started;
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
-    model = new DebuggerModel();
+    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
+    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
+    arguments.get("main").setValue(virtualMachineTargetClass.getName());
+    onVirtualMachineLaunch(arguments);
+
+    virtualMachine = launchingConnector.launch(arguments);
+
+    model = new DebuggerModel(virtualMachine.eventRequestManager());
     configureModel();
 
     view = new DebuggerView();
@@ -69,13 +73,6 @@ public abstract class Debugger {
     configureView();
 
     configureDeserializers();
-
-    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
-    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-    arguments.get("main").setValue(virtualMachineTargetClass.getName());
-    onVirtualMachineLaunch(arguments);
-    virtualMachine = launchingConnector.launch(arguments);
-    eventRequestManager = virtualMachine.eventRequestManager();
   }
 
   protected abstract void configureModel() throws IOException, ClassNotFoundException;
@@ -98,8 +95,8 @@ public abstract class Debugger {
     if (!started) {
       started = true;
       new Thread(() -> {
-        model.submitDebugClassSources(eventRequestManager);
-        model.enableExceptionReporting(eventRequestManager, false);
+        model.submitDebugClassSources();
+        model.enableExceptionReporting(true, true);
         EventSet eventSet;
         try {
           while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
@@ -108,7 +105,7 @@ public abstract class Debugger {
                 threadReference = ((LocatableEvent) event).thread();
               }
               if (event instanceof ClassPrepareEvent) {
-                model.createDebugClassFor(eventRequestManager, (ClassPrepareEvent) event);
+                model.createDebugClassFrom((ClassPrepareEvent) event);
               } else if (event instanceof ExceptionEvent) {
                 ExceptionEvent exceptionEvent = (ExceptionEvent) event;
                 Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
@@ -135,7 +132,7 @@ public abstract class Debugger {
         disableActiveStepRequest();
         StepRequest requestedStepRequest = stepRequestMap.get(stepRequestDepth);
         if (requestedStepRequest == null) {
-          requestedStepRequest = eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
+          requestedStepRequest = model.createStepRequest(threadReference, stepRequestDepth);
           stepRequestMap.put(stepRequestDepth, requestedStepRequest);
         }
         requestedStepRequest.enable();

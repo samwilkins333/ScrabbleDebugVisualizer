@@ -2,9 +2,11 @@ package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.ReferenceType;
+import com.sun.jdi.ThreadReference;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.EventRequestManager;
+import com.sun.jdi.request.StepRequest;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,6 +19,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
+import static com.sun.jdi.request.StepRequest.STEP_LINE;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public class DebuggerModel {
@@ -24,6 +27,11 @@ public class DebuggerModel {
   private final Map<Class<?>, DebugClassSource> debugClassSources = new LinkedHashMap<>();
   private final Map<Class<?>, DebugClass> debugClasses = new LinkedHashMap<>();
   private static final String javaSuffix = ".java";
+  private final EventRequestManager eventRequestManager;
+
+  public DebuggerModel(EventRequestManager eventRequestManager) {
+    this.eventRequestManager = eventRequestManager;
+  }
 
   public DebugClassSource addDebugClassSource(Class<?> clazz, DebugClassSource debugClassSource) {
     debugClassSources.put(clazz, debugClassSource);
@@ -111,7 +119,7 @@ public class DebuggerModel {
     return representedClasses.keySet();
   }
 
-  public void submitDebugClassSources(EventRequestManager eventRequestManager) {
+  public void submitDebugClassSources() {
     for (Class<?> clazz : debugClassSources.keySet()) {
       ClassPrepareRequest request = eventRequestManager.createClassPrepareRequest();
       request.addClassFilter(clazz.getName());
@@ -119,11 +127,11 @@ public class DebuggerModel {
     }
   }
 
-  public void enableExceptionReporting(EventRequestManager eventRequestManager, boolean notifyCaught) {
-    eventRequestManager.createExceptionRequest(null, notifyCaught, true).enable();
+  public void enableExceptionReporting(boolean notifyCaught, boolean notifyUncaught) {
+    eventRequestManager.createExceptionRequest(null, notifyCaught, notifyUncaught).enable();
   }
 
-  public void createDebugClassFor(EventRequestManager eventRequestManager, ClassPrepareEvent event) throws ClassNotFoundException, AbsentInformationException {
+  public void createDebugClassFrom(ClassPrepareEvent event) throws ClassNotFoundException, AbsentInformationException {
     ReferenceType referenceType = event.referenceType();
     Class<?> clazz = Class.forName(referenceType.name());
     DebugClassOperations operations = new DebugClassOperations(
@@ -148,4 +156,7 @@ public class DebuggerModel {
     return debugClasses.get(clazz);
   }
 
+  public StepRequest createStepRequest(ThreadReference threadReference, int stepRequestDepth) {
+    return eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
+  }
 }
