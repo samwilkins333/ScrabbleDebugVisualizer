@@ -35,25 +35,37 @@ public abstract class Debugger {
   private final Deserializer toString = (object, thread) ->
           deserializeReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
 
+  private boolean started;
+
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
+    model = new DebuggerModel();
+    configureModel();
+
     view = new DebuggerView();
     Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new LinkedHashMap<>();
-    defaultActionListeners.put(RESUME, e -> resume());
+    defaultActionListeners.put(RUN, e -> {
+      if (!started) {
+        start();
+        started = true;
+      } else {
+        resume();
+      }
+    });
     defaultActionListeners.put(STEP_OVER, e -> activateStepRequest(StepRequest.STEP_OVER));
     defaultActionListeners.put(STEP_INTO, e -> activateStepRequest(StepRequest.STEP_INTO));
     defaultActionListeners.put(STEP_OUT, e -> activateStepRequest(StepRequest.STEP_OUT));
     defaultActionListeners.put(TOGGLE_BREAKPOINT, e -> {
       try {
-        view.toggleBreakpointAt(view.getSelectedLocation());
+        DebugClassLocation selectedLocation = view.getSelectedLocation();
+        if (selectedLocation != null) {
+          view.toggleBreakpointAt(selectedLocation);
+        }
       } catch (AbsentInformationException ex) {
         view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
     });
     view.setDefaultActionListeners(defaultActionListeners);
     configureView();
-
-    model = new DebuggerModel();
-    configureModel();
 
     configureDeserializers();
 
@@ -65,9 +77,9 @@ public abstract class Debugger {
     eventRequestManager = virtualMachine.eventRequestManager();
   }
 
-  protected abstract void configureView();
-
   protected abstract void configureModel() throws IOException, ClassNotFoundException;
+
+  protected abstract void configureView();
 
   protected abstract void configureDeserializers();
 
@@ -81,7 +93,7 @@ public abstract class Debugger {
 
   protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
 
-  public void start() {
+  private void start() {
     new Thread(() -> {
       model.submitDebugClassSources(eventRequestManager);
       model.enableExceptionReporting(eventRequestManager, false);
@@ -149,6 +161,7 @@ public abstract class Debugger {
       return;
     }
     view.setSelectedLocation(new DebugClassLocation(debugClass, location.lineNumber()));
+    view.setControlsEnabled(true);
 
     onVirtualMachineSuspension(location, deserializeVariables(thread));
 
@@ -161,6 +174,7 @@ public abstract class Debugger {
     }
 
     onVirtualMachineContinuation();
+    view.setControlsEnabled(false);
   }
 
   private void resumeEventProcessing() {

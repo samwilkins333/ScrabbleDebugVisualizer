@@ -20,6 +20,10 @@ public class DebugClass {
     this.operations = operations;
   }
 
+  public Class<?> getClazz() {
+    return clazz;
+  }
+
   public void setCached(boolean cached) {
     if (cached) {
       if (cachedContentsString == null) {

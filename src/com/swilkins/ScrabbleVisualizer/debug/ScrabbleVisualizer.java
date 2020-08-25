@@ -14,7 +14,7 @@ import com.swilkins.ScrabbleBase.Board.State.Tile;
 import com.swilkins.ScrabbleBase.Generation.Candidate;
 import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
-import com.swilkins.ScrabbleBase.Vocabulary.PermutationTrie;
+import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
 import com.swilkins.ScrabbleVisualizer.view.WatchView;
 
@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 
+import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
@@ -56,6 +57,20 @@ public class ScrabbleVisualizer extends Debugger {
   }
 
   @Override
+  protected void configureModel() throws IOException, ClassNotFoundException {
+    model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
+    model.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(203);
+
+    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 17) {
+      @Override
+      public String getContentsAsString() {
+        InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
+        return inputStreamToString(debugClassStream);
+      }
+    });
+  }
+
+  @Override
   protected void configureView() {
     view.setOptions(null);
 
@@ -65,25 +80,11 @@ public class ScrabbleVisualizer extends Debugger {
     view.setMaximumSize(topThird);
     view.setSize(topThird);
 
-    for (DefaultDebuggerControl control : DefaultDebuggerControl.values()) {
+    for (DefaultDebuggerControl control : new DefaultDebuggerControl[]{RUN, STEP_OVER, TOGGLE_BREAKPOINT}) {
       JButton controlButton = view.addDefaultControlButton(control);
       URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
       controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
     }
-  }
-
-  @Override
-  protected void configureModel() throws IOException, ClassNotFoundException {
-    model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    model.getDebugClassSourceFor(PermutationTrie.class).setCached(true).addCompileTimeBreakpoints(26);
-
-    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 23, 37) {
-      @Override
-      public String getContentsAsString() {
-        InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
-        return inputStreamToString(debugClassStream);
-      }
-    });
   }
 
   @Override
@@ -149,12 +150,14 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineSuspension(Location location, Map<String, Object> unpackedVariables) {
+    watchView.setEnabled(true);
     watchView.updateFrom(location, unpackedVariables);
   }
 
   @Override
   protected void onVirtualMachineContinuation() {
     watchView.clean();
+    watchView.setEnabled(false);
   }
 
   @Override

@@ -27,6 +27,8 @@ public class WatchView extends JPanel {
 
   private final Map<String, ImageIcon> directionIcons = new HashMap<>();
 
+  private final JPanel boardView;
+
   private JTextArea candidates = new JTextArea();
   private JTextArea annotation = new JTextArea();
   private JTextArea rawWatchedName = new JTextArea();
@@ -47,7 +49,7 @@ public class WatchView extends JPanel {
 
     setBackground(Color.WHITE);
     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-    JPanel boardView = new JPanel(new GridLayout(STANDARD_BOARD_DIMENSIONS, STANDARD_BOARD_DIMENSIONS, 0, 0));
+    boardView = new JPanel(new GridLayout(STANDARD_BOARD_DIMENSIONS, STANDARD_BOARD_DIMENSIONS, 0, 0));
     boardView.setBackground(Color.WHITE);
     boardView.setPreferredSize(dimension);
     boardView.setBorder(new EmptyBorder(0, 5, 0, 5));
@@ -64,6 +66,7 @@ public class WatchView extends JPanel {
       }
     }
 
+    boardView.setEnabled(false);
     add(boardView);
 
     tabbedPane = new JTabbedPane();
@@ -83,7 +86,7 @@ public class WatchView extends JPanel {
       rack.add(rackTile);
     }
     scrollPane.setBorder(BorderFactory.createEmptyBorder());
-    tabbedPane.addTab("Rack", scrollPane);
+    tabbedPane.addTab("Visuals", scrollPane);
 
     rawWatchedName.setEditable(false);
     rawWatchedName.setHighlighter(null);
@@ -112,6 +115,7 @@ public class WatchView extends JPanel {
     scrollPane.setBorder(BorderFactory.createEmptyBorder());
     tabbedPane.addTab("Annotation", scrollPane);
 
+    tabbedPane.setEnabled(false);
     add(tabbedPane);
   }
 
@@ -180,6 +184,12 @@ public class WatchView extends JPanel {
     });
   }
 
+  @Override
+  public void setEnabled(boolean enabled) {
+    super.setEnabled(enabled);
+    boardView.setEnabled(enabled);
+    tabbedPane.setEnabled(enabled);
+  }
 
   public void updateFrom(Location location, Map<String, Object> unpackedVariables) {
     StringBuilder rawNameBuilder = new StringBuilder();

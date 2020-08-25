@@ -9,7 +9,7 @@ public class DebuggerHarness {
   public static void main(String[] args) {
     EventQueue.invokeLater(() -> {
       try {
-        new ScrabbleVisualizer().start();
+        new ScrabbleVisualizer();
       } catch (Exception e) {
         e.printStackTrace();
       }

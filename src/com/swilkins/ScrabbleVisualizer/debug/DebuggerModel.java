@@ -21,8 +21,8 @@ import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToStr
 
 public class DebuggerModel {
 
-  private final Map<Class<?>, DebugClassSource> debugClassSources = new HashMap<>();
-  private final Map<Class<?>, DebugClass> debugClasses = new HashMap<>();
+  private final Map<Class<?>, DebugClassSource> debugClassSources = new LinkedHashMap<>();
+  private final Map<Class<?>, DebugClass> debugClasses = new LinkedHashMap<>();
   private static final String javaSuffix = ".java";
 
   public DebugClassSource addDebugClassSource(Class<?> clazz, DebugClassSource debugClassSource) {
@@ -35,6 +35,16 @@ public class DebuggerModel {
       return Class.forName(entryClass);
     }
     return null;
+  }
+
+  public Class<?>[] getRepresentedClasses() {
+    Class<?>[] representedClasses = new Class<?>[debugClassSources.size()];
+    int i = 0;
+    for (Map.Entry<Class<?>, DebugClassSource> debugClassSourceEntry : debugClassSources.entrySet()) {
+      representedClasses[i++] = debugClassSourceEntry.getKey();
+    }
+    Arrays.sort(representedClasses, Comparator.comparing(Class::getName));
+    return representedClasses;
   }
 
   public Set<Class<?>> addDebugClassSourcesFromJar(String jarPath, DebugClassSourceFilter filter) throws IOException, ClassNotFoundException {

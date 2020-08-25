@@ -13,6 +13,8 @@ import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.util.*;
 
+import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.RUN;
+
 public class DebuggerView extends JPanel {
 
   private final JScrollPane scrollWrapper;
@@ -50,6 +52,7 @@ public class DebuggerView extends JPanel {
     JPanel header = new JPanel();
     header.setLayout(new BoxLayout(header, BoxLayout.X_AXIS));
     header.add(locationLabel);
+    locationLabel.setText(" ");
     locationLabel.setBorder(new EmptyBorder(5, 0, 5, 0));
     add(header);
 
@@ -69,8 +72,13 @@ public class DebuggerView extends JPanel {
       DefaultDebuggerControl control = defaultControlButton.getKey();
       controlButton = new JButton(control.getLabel());
       controlButton.addActionListener(defaultControlButton.getValue());
+      controlButton.setEnabled(control == RUN);
       defaultControlButtons.put(control, controlButton);
     }
+  }
+
+  public void setControlsEnabled(boolean areEnabled) {
+    defaultControlButtons.values().forEach(button -> button.setEnabled(areEnabled));
   }
 
   public void setOptions(DebuggerViewOptions options) {
