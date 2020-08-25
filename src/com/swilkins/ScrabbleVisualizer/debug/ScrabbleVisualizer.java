@@ -58,9 +58,9 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void configureModel() throws IOException, ClassNotFoundException {
     model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    model.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(203, 152);
+    model.getDebugClassSourceFor(Generator.class).setCached(true);
 
-    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 26) {
+    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 25) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
@@ -79,7 +79,7 @@ public class ScrabbleVisualizer extends Debugger {
     view.setMaximumSize(topThird);
     view.setSize(topThird);
 
-    for (DefaultDebuggerControl control : DefaultDebuggerControl.values()) {
+    for (DebuggerControl control : DebuggerControl.values()) {
       JButton controlButton = view.addDefaultControlButton(control);
       URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
       controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
@@ -129,13 +129,14 @@ public class ScrabbleVisualizer extends Debugger {
   }
 
   @Override
-  protected void onVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
+  protected void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
   }
 
   @Override
   protected void onVirtualMachineEvent(Event event) throws Exception {
     if (event instanceof BreakpointEvent) {
+      event.request().disable();
       disableActiveStepRequest();
       suspend((LocatableEvent) event);
     } else if (event instanceof StepEvent) {
@@ -161,7 +162,9 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
-    System.out.println(virtualMachineOut);
+    watchView.setEnabled(true);
+    watchView.setOutputView(virtualMachineOut, virtualMachineError);
+    awaitEventProcessingContinuation();
     frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
   }
 

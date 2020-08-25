@@ -1,6 +1,6 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
-public enum DefaultDebuggerControl {
+public enum DebuggerControl {
 
   RUN("Run"),
   STEP_OVER("Step Over"),
@@ -10,7 +10,7 @@ public enum DefaultDebuggerControl {
 
   private final String label;
 
-  DefaultDebuggerControl(String label) {
+  DebuggerControl(String label) {
     this.label = label;
   }
 

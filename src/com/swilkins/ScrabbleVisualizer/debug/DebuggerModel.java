@@ -5,6 +5,7 @@ import com.sun.jdi.ReferenceType;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.request.ClassPrepareRequest;
+import com.sun.jdi.request.EventRequest;
 import com.sun.jdi.request.EventRequestManager;
 import com.sun.jdi.request.StepRequest;
 
@@ -27,9 +28,10 @@ public class DebuggerModel {
   private final Map<Class<?>, DebugClassSource> debugClassSources = new LinkedHashMap<>();
   private final Map<Class<?>, DebugClass> debugClasses = new LinkedHashMap<>();
   private static final String javaSuffix = ".java";
-  private final EventRequestManager eventRequestManager;
+  private EventRequestManager eventRequestManager;
+  private final Map<EventRequest, Boolean> eventRequestStateMap = new HashMap<>();
 
-  public DebuggerModel(EventRequestManager eventRequestManager) {
+  public void setEventRequestManager(EventRequestManager eventRequestManager) {
     this.eventRequestManager = eventRequestManager;
   }
 
@@ -46,7 +48,7 @@ public class DebuggerModel {
     return null;
   }
 
-  public Class<?>[] getRepresentedClasses() {
+  public Class<?>[] getAllClasses() {
     Class<?>[] representedClasses = new Class<?>[debugClassSources.size()];
     int i = 0;
     for (Map.Entry<Class<?>, DebugClassSource> debugClassSourceEntry : debugClassSources.entrySet()) {
@@ -123,12 +125,12 @@ public class DebuggerModel {
     for (Class<?> clazz : debugClassSources.keySet()) {
       ClassPrepareRequest request = eventRequestManager.createClassPrepareRequest();
       request.addClassFilter(clazz.getName());
-      request.enable();
+      setEventRequestEnabled(request, true);
     }
   }
 
   public void enableExceptionReporting(boolean notifyCaught, boolean notifyUncaught) {
-    eventRequestManager.createExceptionRequest(null, notifyCaught, notifyUncaught).enable();
+    setEventRequestEnabled(eventRequestManager.createExceptionRequest(null, notifyCaught, notifyUncaught), true);
   }
 
   public void createDebugClassFrom(ClassPrepareEvent event) throws ClassNotFoundException, AbsentInformationException {
@@ -159,4 +161,22 @@ public class DebuggerModel {
   public StepRequest createStepRequest(ThreadReference threadReference, int stepRequestDepth) {
     return eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
   }
+
+  public void setEventRequestEnabled(EventRequest eventRequest, boolean enabled) {
+    eventRequest.setEnabled(enabled);
+    eventRequestStateMap.put(eventRequest, enabled);
+  }
+
+  public void disableAllEventRequests() {
+    for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
+      eventRequestEntry.getKey().setEnabled(false);
+    }
+  }
+
+  public void restoreAllEventRequests() {
+    for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
+      eventRequestEntry.getKey().setEnabled(eventRequestEntry.getValue());
+    }
+  }
+
 }

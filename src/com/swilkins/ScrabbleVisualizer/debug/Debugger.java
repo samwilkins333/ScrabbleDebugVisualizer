@@ -13,22 +13,23 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.*;
+import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public abstract class Debugger {
 
-  protected final VirtualMachine virtualMachine;
+  protected VirtualMachine virtualMachine;
 
   protected final DebuggerView view;
   protected final DebuggerModel model;
+  private final Class<?> virtualMachineTargetClass;
 
   protected ThreadReference threadReference;
   private final Map<Integer, StepRequest> stepRequestMap = new HashMap<>(3);
   protected Integer activeStepRequestDepth;
 
   protected final Object eventProcessingControl = new Object();
-  protected final Object stepRequestLock = new Object();
+  protected final Object stepRequestControl = new Object();
 
   protected final Map<String, Deserializer> deserializers = new HashMap<>();
   private final Deserializer toString = (object, thread) ->
@@ -37,18 +38,13 @@ public abstract class Debugger {
   private boolean started;
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
-    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
-    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-    arguments.get("main").setValue(virtualMachineTargetClass.getName());
-    onVirtualMachineLaunch(arguments);
+    this.virtualMachineTargetClass = virtualMachineTargetClass;
 
-    virtualMachine = launchingConnector.launch(arguments);
-
-    model = new DebuggerModel(virtualMachine.eventRequestManager());
+    model = new DebuggerModel();
     configureModel();
 
     view = new DebuggerView();
-    Map<DefaultDebuggerControl, ActionListener> defaultActionListeners = new LinkedHashMap<>();
+    Map<DebuggerControl, ActionListener> defaultActionListeners = new LinkedHashMap<>();
     defaultActionListeners.put(RUN, e -> {
       if (!started) {
         start();
@@ -81,7 +77,7 @@ public abstract class Debugger {
 
   protected abstract void configureDeserializers();
 
-  protected abstract void onVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
+  protected abstract void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
 
   protected abstract void onVirtualMachineEvent(Event event) throws Exception;
 
@@ -93,12 +89,19 @@ public abstract class Debugger {
 
   private void start() {
     if (!started) {
+      LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
+      Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
+      arguments.get("main").setValue(virtualMachineTargetClass.getName());
+      configureVirtualMachineLaunch(arguments);
+
       started = true;
       new Thread(() -> {
-        model.submitDebugClassSources();
-        model.enableExceptionReporting(true, true);
         EventSet eventSet;
         try {
+          virtualMachine = launchingConnector.launch(arguments);
+          model.setEventRequestManager(virtualMachine.eventRequestManager());
+          model.submitDebugClassSources();
+          model.enableExceptionReporting(true, true);
           while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
             for (Event event : eventSet) {
               if (event instanceof LocatableEvent) {
@@ -115,6 +118,8 @@ public abstract class Debugger {
             }
           }
         } catch (VMDisconnectedException e) {
+          started = false;
+          view.setControlButtonEnabled(RUN, true);
           onVirtualMachineTermination(
                   inputStreamToString(virtualMachine.process().getInputStream()),
                   inputStreamToString(virtualMachine.process().getErrorStream())
@@ -127,7 +132,7 @@ public abstract class Debugger {
   }
 
   protected void activateStepRequest(int stepRequestDepth) {
-    synchronized (stepRequestLock) {
+    synchronized (stepRequestControl) {
       if (activeStepRequestDepth == null || activeStepRequestDepth != stepRequestDepth) {
         disableActiveStepRequest();
         StepRequest requestedStepRequest = stepRequestMap.get(stepRequestDepth);
@@ -135,7 +140,7 @@ public abstract class Debugger {
           requestedStepRequest = model.createStepRequest(threadReference, stepRequestDepth);
           stepRequestMap.put(stepRequestDepth, requestedStepRequest);
         }
-        requestedStepRequest.enable();
+        model.setEventRequestEnabled(requestedStepRequest, true);
         activeStepRequestDepth = stepRequestDepth;
       }
     }
@@ -143,11 +148,11 @@ public abstract class Debugger {
   }
 
   protected void disableActiveStepRequest() {
-    synchronized (stepRequestLock) {
+    synchronized (stepRequestControl) {
       if (activeStepRequestDepth != null) {
         StepRequest activeStepRequest = stepRequestMap.get(activeStepRequestDepth);
         if (activeStepRequest != null) {
-          activeStepRequest.disable();
+          model.setEventRequestEnabled(activeStepRequest, false);
         }
         activeStepRequestDepth = null;
       }
@@ -169,20 +174,23 @@ public abstract class Debugger {
       return;
     }
     view.setSelectedLocation(new DebugClassLocation(debugClass, location.lineNumber()));
-    view.setControlsEnabled(true);
+    view.setAllControlButtonsEnabled(true);
 
     onVirtualMachineSuspension(location, deserializeVariables(thread));
+    awaitEventProcessingContinuation();
 
+    onVirtualMachineContinuation();
+    view.setAllControlButtonsEnabled(false);
+  }
+
+  protected void awaitEventProcessingContinuation() {
     synchronized (eventProcessingControl) {
       try {
         eventProcessingControl.wait();
       } catch (InterruptedException e) {
-        System.exit(0);
+        e.printStackTrace();
       }
     }
-
-    onVirtualMachineContinuation();
-    view.setControlsEnabled(false);
   }
 
   private void resumeEventProcessing() {
@@ -191,7 +199,7 @@ public abstract class Debugger {
     }
   }
 
-  public Class<?> toClass(Location location) {
+  protected Class<?> toClass(Location location) {
     Class<?> result;
     String className = location.toString().split(":")[0];
     try {
@@ -202,20 +210,21 @@ public abstract class Debugger {
     return result;
   }
 
-  public Deserializer getFor(ObjectReference object) {
+  private Deserializer getDeserializerFor(ObjectReference object) {
+    Deserializer deserializer = toString;
     try {
       Class<?> clazz = Class.forName(object.referenceType().name());
       while (clazz != Object.class) {
         Deserializer existing = deserializers.get(clazz.getName());
         if (existing != null) {
-          return existing;
+          deserializer = existing;
+          break;
         }
         clazz = clazz.getSuperclass();
       }
-    } catch (ClassNotFoundException e) {
-      return toString;
+    } catch (ClassNotFoundException ignored) {
     }
-    return toString;
+    return deserializer;
   }
 
   protected Value invoke(ObjectReference object, ThreadReference thread, String toInvokeName, String signature) {
@@ -237,9 +246,12 @@ public abstract class Debugger {
   private Map<String, Object> deserializeVariables(ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
     StackFrame frame = thread.frame(0);
     Map<String, Object> deserializedVariables = new HashMap<>();
-    for (Map.Entry<LocalVariable, Value> entry : frame.getValues(frame.visibleVariables()).entrySet()) {
+    Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
+    model.disableAllEventRequests();
+    for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
       deserializedVariables.put(entry.getKey().name(), deserializeReference(thread, entry.getValue()));
     }
+    model.restoreAllEventRequests();
     return deserializedVariables;
   }
 
@@ -258,7 +270,7 @@ public abstract class Debugger {
       return ((StringReference) value).value();
     } else if (value instanceof ObjectReference) {
       ObjectReference ref = (ObjectReference) value;
-      return getFor(ref).deserialize(ref, thread);
+      return getDeserializerFor(ref).deserialize(ref, thread);
     } else if (value instanceof PrimitiveValue) {
       PrimitiveValue primitiveValue = (PrimitiveValue) value;
       String subType = value.type().name();

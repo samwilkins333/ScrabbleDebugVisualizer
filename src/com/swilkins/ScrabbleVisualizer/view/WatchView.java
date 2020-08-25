@@ -30,7 +30,7 @@ public class WatchView extends JPanel {
   private final JPanel boardView;
 
   private JTextArea candidates = new JTextArea();
-  private JTextArea annotation = new JTextArea();
+  private JTextArea outputView = new JTextArea();
   private JTextArea rawWatchedName = new JTextArea();
   private JTextArea rawWatchedValue = new JTextArea();
 
@@ -109,11 +109,11 @@ public class WatchView extends JPanel {
     scrollPane.setBorder(BorderFactory.createEmptyBorder());
     tabbedPane.addTab("Candidates (0)", scrollPane);
 
-    annotation.setEditable(false);
-    annotation.setHighlighter(null);
-    scrollPane = new JScrollPane(annotation);
+    outputView.setEditable(false);
+    outputView.setHighlighter(null);
+    scrollPane = new JScrollPane(outputView);
     scrollPane.setBorder(BorderFactory.createEmptyBorder());
-    tabbedPane.addTab("Annotation", scrollPane);
+    tabbedPane.addTab("Output", scrollPane);
 
     tabbedPane.setEnabled(false);
     add(tabbedPane);
@@ -124,8 +124,9 @@ public class WatchView extends JPanel {
     directionIcons.put(name, createImageIconFrom(url, ICON_DIMENSION));
   }
 
-  public void setAnnotation(String annotation) {
-    this.annotation.setText(annotation);
+  public void setOutputView(String output, String error) {
+    tabbedPane.setSelectedIndex(3);
+    this.outputView.setText(String.format("Output:\n%s\n\nError:\n%s", output, error));
   }
 
   private void registerUpdaters() {

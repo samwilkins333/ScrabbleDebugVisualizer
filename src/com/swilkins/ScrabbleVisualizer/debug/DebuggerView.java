@@ -13,7 +13,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.util.*;
 
-import static com.swilkins.ScrabbleVisualizer.debug.DefaultDebuggerControl.RUN;
+import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.RUN;
 
 public class DebuggerView extends JPanel {
 
@@ -22,7 +22,7 @@ public class DebuggerView extends JPanel {
   private final JLabel locationLabel = new JLabel();
   private final DebugClassTextView debugClassTextView;
   private final JPanel defaultControlPanel;
-  private final Map<DefaultDebuggerControl, JButton> defaultControlButtons = new LinkedHashMap<>();
+  private final Map<DebuggerControl, JButton> controlButtons = new LinkedHashMap<>();
 
   private DebugClassLocation selectedLocation;
   private boolean isCenteringPreservedOnClick = false;
@@ -66,19 +66,26 @@ public class DebuggerView extends JPanel {
     add(defaultControlPanel);
   }
 
-  public void setDefaultActionListeners(Map<DefaultDebuggerControl, ActionListener> defaultActionListeners) {
+  public void setDefaultActionListeners(Map<DebuggerControl, ActionListener> defaultActionListeners) {
     JButton controlButton;
-    for (Map.Entry<DefaultDebuggerControl, ActionListener> defaultControlButton : defaultActionListeners.entrySet()) {
-      DefaultDebuggerControl control = defaultControlButton.getKey();
+    for (Map.Entry<DebuggerControl, ActionListener> defaultControlButton : defaultActionListeners.entrySet()) {
+      DebuggerControl control = defaultControlButton.getKey();
       controlButton = new JButton(control.getLabel());
       controlButton.addActionListener(defaultControlButton.getValue());
       controlButton.setEnabled(control == RUN);
-      defaultControlButtons.put(control, controlButton);
+      controlButtons.put(control, controlButton);
     }
   }
 
-  public void setControlsEnabled(boolean areEnabled) {
-    defaultControlButtons.values().forEach(button -> button.setEnabled(areEnabled));
+  public void setControlButtonEnabled(DebuggerControl control, boolean enabled) {
+    JButton controlButton = controlButtons.get(control);
+    if (controlButton != null) {
+      controlButton.setEnabled(enabled);
+    }
+  }
+
+  public void setAllControlButtonsEnabled(boolean enabled) {
+    controlButtons.values().forEach(controlButton -> controlButton.setEnabled(enabled));
   }
 
   public void setOptions(DebuggerViewOptions options) {
@@ -95,8 +102,8 @@ public class DebuggerView extends JPanel {
     }
   }
 
-  public JButton addDefaultControlButton(DefaultDebuggerControl control) {
-    JButton controlButton = defaultControlButtons.get(control);
+  public JButton addDefaultControlButton(DebuggerControl control) {
+    JButton controlButton = controlButtons.get(control);
     defaultControlPanel.add(controlButton);
     return controlButton;
   }
