@@ -159,7 +159,6 @@ public abstract class Debugger {
 
   protected void resume() {
     disableActiveStepRequest();
-    System.out.println(activeStepRequestDepth);
     resumeEventProcessing();
   }
 
