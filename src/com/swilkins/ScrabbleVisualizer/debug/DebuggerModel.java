@@ -197,7 +197,6 @@ public class DebuggerModel {
         activeStepRequestDepth = stepRequestDepth;
       }
     }
-//    System.out.println("ACTIVATING: " + stepRequestMap);
   }
 
   public void disableActiveStepRequest() {
@@ -210,7 +209,6 @@ public class DebuggerModel {
         activeStepRequestDepth = null;
       }
     }
-//    System.out.println("DISABLING: " + stepRequestMap);
   }
 
   public void setThreadReference(ThreadReference threadReference) {

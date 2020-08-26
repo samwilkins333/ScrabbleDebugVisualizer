@@ -142,7 +142,6 @@ public class ScrabbleVisualizer extends Debugger {
     } else if (event instanceof StepEvent) {
       Class<?> clazz = toClass(((StepEvent) event).location());
       if (clazz != null && model.getDebugClassFor(clazz) != null) {
-        System.out.println(event + " " + model.getActiveStepRequestDepth());
         suspend((StepEvent) event);
       }
     }
