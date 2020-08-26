@@ -187,7 +187,7 @@ public abstract class Debugger {
     DebugClassLocation updatedLocation = new DebugClassLocation(debugClass, location.lineNumber());
     DebugClassLocation previousLocation = view.setSelectedLocation(updatedLocation);
 
-    if (updatedLocation.equals(previousLocation) && activeStepRequestDepth == StepRequest.STEP_INTO) {
+    if (updatedLocation.equals(previousLocation) && activeStepRequestDepth != null && StepRequest.STEP_INTO == activeStepRequestDepth) {
       virtualMachine.resume();
       return;
     }
