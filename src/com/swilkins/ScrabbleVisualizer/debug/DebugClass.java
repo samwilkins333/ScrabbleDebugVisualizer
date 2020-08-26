@@ -3,6 +3,7 @@ package com.swilkins.ScrabbleVisualizer.debug;
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Location;
 import com.sun.jdi.request.BreakpointRequest;
+import com.swilkins.ScrabbleVisualizer.debug.interfaces.LocationGetter;
 
 import java.util.*;
 
@@ -10,14 +11,14 @@ public class DebugClass {
 
   private final Class<?> clazz;
   private final DebugClassSource debugClassSource;
-  private final DebugClassOperations operations;
+  private final LocationGetter locationGetter;
   private final Map<Integer, BreakpointRequest> breakpointRequestMap = new HashMap<>();
   private String cachedContentsString;
 
-  public DebugClass(Class<?> clazz, DebugClassSource debugClassSource, DebugClassOperations operations) {
+  public DebugClass(Class<?> clazz, DebugClassSource debugClassSource, LocationGetter locationGetter) {
     this.clazz = clazz;
     this.debugClassSource = debugClassSource;
-    this.operations = operations;
+    this.locationGetter = locationGetter;
   }
 
   public Class<?> getClazz() {
@@ -55,34 +56,32 @@ public class DebugClass {
     }
   }
 
-  public Set<Integer> getBreakpoints() {
+  public void addBreakpointRequest(int lineNumber, BreakpointRequest breakpointRequest) {
+    breakpointRequestMap.put(lineNumber, breakpointRequest);
+  }
+
+  public BreakpointRequest getBreakpointRequest(int lineNumber) {
+    return breakpointRequestMap.get(lineNumber);
+  }
+
+  public Set<Integer> getEnabledBreakpoints() {
     Set<Integer> enabledBreakpoints = new HashSet<>(breakpointRequestMap.size());
-    for (Map.Entry<Integer, BreakpointRequest> breakpointEntry : breakpointRequestMap.entrySet()) {
-      if (breakpointEntry.getValue().isEnabled()) {
-        enabledBreakpoints.add(breakpointEntry.getKey());
+    for (Map.Entry<Integer, BreakpointRequest> breakpointRequestEntry : breakpointRequestMap.entrySet()) {
+      if (breakpointRequestEntry.getValue().isEnabled()) {
+        enabledBreakpoints.add(breakpointRequestEntry.getKey());
       }
     }
-    return enabledBreakpoints;
+    return Collections.unmodifiableSet(enabledBreakpoints);
   }
 
-  public void requestBreakpointAt(int lineNumber) throws AbsentInformationException {
-    List<Location> locations = operations.getLocationGetter().getLocations(lineNumber);
-    if (!locations.isEmpty()) {
-      BreakpointRequest request = operations.getBreakpointRequester().request(locations.get(0));
-      breakpointRequestMap.put(lineNumber, request);
-      request.enable();
-    }
+  public Location getLocationOf(int lineNumber) throws AbsentInformationException {
+    List<Location> locations = locationGetter.getLocations(lineNumber);
+    return !locations.isEmpty() ? locations.get(0) : null;
   }
 
-  public boolean hasBreakpointAt(int lineNumber) {
-    return breakpointRequestMap.containsKey(lineNumber);
-  }
-
-  public void removeBreakpointAt(int lineNumber) {
-    BreakpointRequest request = breakpointRequestMap.remove(lineNumber);
-    if (request != null) {
-      operations.getBreakpointRemover().remove(request);
-    }
+  @Override
+  public String toString() {
+    return "DebugClass " + clazz.getName();
   }
 
 }

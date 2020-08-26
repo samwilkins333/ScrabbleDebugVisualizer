@@ -20,7 +20,6 @@ import com.swilkins.ScrabbleVisualizer.view.WatchView;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -35,13 +34,12 @@ public class ScrabbleVisualizer extends Debugger {
 
   private static final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
   private WatchView watchView;
-  private JFrame frame;
   public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
 
   public ScrabbleVisualizer() throws Exception {
     super(GeneratorTarget.class);
 
-    frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
+    JFrame frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setSize(screenSize.width, screenSize.height - 60);
     frame.setResizable(false);
@@ -58,7 +56,7 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void configureModel() throws IOException, ClassNotFoundException {
     model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    model.getDebugClassSourceFor(Generator.class).setCached(true);
+    model.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(203);
 
     model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 25) {
       @Override
@@ -131,12 +129,12 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
+    watchView.setDefaultView();
   }
 
   @Override
   protected void onVirtualMachineEvent(Event event) throws Exception {
     if (event instanceof BreakpointEvent) {
-      event.request().disable();
       disableActiveStepRequest();
       suspend((LocatableEvent) event);
     } else if (event instanceof StepEvent) {
@@ -162,10 +160,8 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
-    watchView.setEnabled(true);
     watchView.setOutputView(virtualMachineOut, virtualMachineError);
-    awaitEventProcessingContinuation();
-    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+    watchView.setEnabled(true);
   }
 
 }

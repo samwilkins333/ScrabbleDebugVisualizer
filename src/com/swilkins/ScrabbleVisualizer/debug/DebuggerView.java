@@ -1,6 +1,5 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
-import com.sun.jdi.AbsentInformationException;
 import com.swilkins.ScrabbleVisualizer.view.LineNumberView;
 
 import javax.swing.*;
@@ -37,7 +36,7 @@ public class DebuggerView extends JPanel {
       String locationLabelText;
       if (selectedLocation != null) {
         DebugClass debugClass = selectedLocation.getDebugClass();
-        int selectedLineNumber = getDebugClassTextView().getSelectedLineNumber();
+        int selectedLineNumber = debugClassTextView.getSelectedLineNumber();
         locationLabelText = String.format("%s: %d", debugClass.getClazz().getName(), selectedLineNumber);
         locationLabel.setText(locationLabelText);
         DebugClassLocation selectedLocation = new DebugClassLocation(debugClass, selectedLineNumber);
@@ -112,11 +111,10 @@ public class DebuggerView extends JPanel {
     return selectedLocation;
   }
 
-  public void setSelectedLocation(DebugClassLocation updatedLocation) {
+  public DebugClassLocation setSelectedLocation(DebugClassLocation updatedLocation) {
     DebugClass updatedDebugClass = updatedLocation.getDebugClass();
     if (selectedLocation == null || updatedDebugClass != selectedLocation.getDebugClass()) {
       debugClassTextView.setText(updatedDebugClass.getContentsAsString());
-      debugClassTextView.repaintWith(updatedDebugClass);
     }
 
     int updatedLineNumber = updatedLocation.getLineNumber();
@@ -127,7 +125,10 @@ public class DebuggerView extends JPanel {
       updatedLocation = new DebugClassLocation(updatedDebugClass, updatedLineNumber);
     }
 
+    DebugClassLocation previousLocation = this.selectedLocation;
     this.selectedLocation = updatedLocation;
+
+    repaint();
 
     int startOfLineOffset = root.getElement(updatedLineNumber - 1).getStartOffset();
     debugClassTextView.setCaretPosition(startOfLineOffset);
@@ -149,25 +150,20 @@ public class DebuggerView extends JPanel {
         e.printStackTrace();
       }
     }
-  }
 
-  public void toggleBreakpointAt(DebugClassLocation debugClassLocation) throws AbsentInformationException {
-    DebugClass debugClass = debugClassLocation.getDebugClass();
-    int lineNumber = debugClassLocation.getLineNumber();
-    if (debugClass.hasBreakpointAt(lineNumber)) {
-      debugClass.removeBreakpointAt(lineNumber);
-    } else {
-      debugClass.requestBreakpointAt(lineNumber);
-    }
-    debugClassTextView.repaintWith(debugClass);
-  }
-
-  public DebugClassTextView getDebugClassTextView() {
-    return debugClassTextView;
+    return previousLocation;
   }
 
   public void reportException(String exception, DebuggerExceptionType type) {
     debugClassTextView.setText(String.format("Exception in %s\n%s\n\n", type.getLocationName(), exception));
+  }
+
+  @Override
+  public void repaint() {
+    if (selectedLocation != null) {
+      debugClassTextView.paintBreakpointLines(selectedLocation.getDebugClass().getEnabledBreakpoints());
+    }
+    super.repaint();
   }
 
   public static class DebugClassTextView extends JTextArea {
@@ -191,10 +187,10 @@ public class DebuggerView extends JPanel {
       repaint();
     }
 
-    public void repaintWith(DebugClass debugClass) {
-      lineNumberView.setBreakpointLines(debugClass);
+    public void paintBreakpointLines(Set<Integer> breakpointLines) {
+      lineNumberView.setBreakpointLines(breakpointLines);
       breakpointViews.clear();
-      for (int lineNumber : debugClass.getBreakpoints()) {
+      for (int lineNumber : breakpointLines) {
         try {
           Element element = getDocument().getDefaultRootElement().getElement(lineNumber - 1);
           if (element != null) {

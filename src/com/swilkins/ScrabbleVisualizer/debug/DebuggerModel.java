@@ -1,13 +1,11 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.AbsentInformationException;
+import com.sun.jdi.Location;
 import com.sun.jdi.ReferenceType;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.event.ClassPrepareEvent;
-import com.sun.jdi.request.ClassPrepareRequest;
-import com.sun.jdi.request.EventRequest;
-import com.sun.jdi.request.EventRequestManager;
-import com.sun.jdi.request.StepRequest;
+import com.sun.jdi.request.*;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -125,7 +123,7 @@ public class DebuggerModel {
     for (Class<?> clazz : debugClassSources.keySet()) {
       ClassPrepareRequest request = eventRequestManager.createClassPrepareRequest();
       request.addClassFilter(clazz.getName());
-      setEventRequestEnabled(request, true);
+      request.enable();
     }
   }
 
@@ -136,18 +134,30 @@ public class DebuggerModel {
   public void createDebugClassFrom(ClassPrepareEvent event) throws ClassNotFoundException, AbsentInformationException {
     ReferenceType referenceType = event.referenceType();
     Class<?> clazz = Class.forName(referenceType.name());
-    DebugClassOperations operations = new DebugClassOperations(
-            referenceType::locationsOfLine,
-            eventRequestManager::createBreakpointRequest,
-            eventRequestManager::deleteEventRequest
-    );
     DebugClassSource debugClassSource = debugClassSources.get(clazz);
-    DebugClass debugClass = new DebugClass(clazz, debugClassSource, operations);
+    DebugClass debugClass = new DebugClass(clazz, debugClassSource, referenceType::locationsOfLine);
     debugClass.setCached(debugClassSource.isCached());
     for (int compileTimeBreakpoint : debugClassSource.getCompileTimeBreakpoints()) {
-      debugClass.requestBreakpointAt(compileTimeBreakpoint);
+      createBreakpointRequest(new DebugClassLocation(debugClass, compileTimeBreakpoint));
     }
     debugClasses.put(clazz, debugClass);
+  }
+
+  public BreakpointRequest getBreakpointRequestAt(DebugClassLocation selectedLocation) {
+    Class<?> clazz = selectedLocation.getDebugClass().getClazz();
+    int lineNumber = selectedLocation.getLineNumber();
+    return getDebugClassFor(clazz).getBreakpointRequest(lineNumber);
+  }
+
+  public void createBreakpointRequest(DebugClassLocation breakpointLocation) throws AbsentInformationException {
+    DebugClass debugClass = breakpointLocation.getDebugClass();
+    int lineNumber = breakpointLocation.getLineNumber();
+    Location location = debugClass.getLocationOf(lineNumber);
+    if (location != null) {
+      BreakpointRequest breakpointRequest = eventRequestManager.createBreakpointRequest(location);
+      setEventRequestEnabled(breakpointRequest, true);
+      debugClass.addBreakpointRequest(lineNumber, breakpointRequest);
+    }
   }
 
   public DebugClassSource getDebugClassSourceFor(Class<?> clazz) {
@@ -167,7 +177,7 @@ public class DebuggerModel {
     eventRequestStateMap.put(eventRequest, enabled);
   }
 
-  public void disableAllEventRequests() {
+  public void overrideAllEventRequests() {
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(false);
     }

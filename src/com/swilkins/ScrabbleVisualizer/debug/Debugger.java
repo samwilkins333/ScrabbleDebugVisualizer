@@ -4,6 +4,7 @@ import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.*;
+import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.StepRequest;
 
 import java.awt.event.ActionListener;
@@ -30,6 +31,7 @@ public abstract class Debugger {
 
   protected final Object eventProcessingControl = new Object();
   protected final Object stepRequestControl = new Object();
+  protected final Object threadReferenceControl = new Object();
 
   protected final Map<String, Deserializer> deserializers = new HashMap<>();
   private final Deserializer toString = (object, thread) ->
@@ -58,9 +60,13 @@ public abstract class Debugger {
     defaultActionListeners.put(TOGGLE_BREAKPOINT, e -> {
       try {
         DebugClassLocation selectedLocation = view.getSelectedLocation();
-        if (selectedLocation != null) {
-          view.toggleBreakpointAt(selectedLocation);
+        BreakpointRequest breakpointRequest = model.getBreakpointRequestAt(selectedLocation);
+        if (breakpointRequest == null) {
+          model.createBreakpointRequest(selectedLocation);
+        } else {
+          model.setEventRequestEnabled(breakpointRequest, !breakpointRequest.isEnabled());
         }
+        view.repaint();
       } catch (AbsentInformationException ex) {
         view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
@@ -92,6 +98,7 @@ public abstract class Debugger {
       LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
       Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
       arguments.get("main").setValue(virtualMachineTargetClass.getName());
+
       configureVirtualMachineLaunch(arguments);
 
       started = true;
@@ -102,10 +109,13 @@ public abstract class Debugger {
           model.setEventRequestManager(virtualMachine.eventRequestManager());
           model.submitDebugClassSources();
           model.enableExceptionReporting(true, true);
+
           while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
             for (Event event : eventSet) {
               if (event instanceof LocatableEvent) {
-                threadReference = ((LocatableEvent) event).thread();
+                synchronized (threadReferenceControl) {
+                  threadReference = ((LocatableEvent) event).thread();
+                }
               }
               if (event instanceof ClassPrepareEvent) {
                 model.createDebugClassFrom((ClassPrepareEvent) event);
@@ -120,10 +130,10 @@ public abstract class Debugger {
         } catch (VMDisconnectedException e) {
           started = false;
           view.setControlButtonEnabled(RUN, true);
-          onVirtualMachineTermination(
-                  inputStreamToString(virtualMachine.process().getInputStream()),
-                  inputStreamToString(virtualMachine.process().getErrorStream())
-          );
+          Process process = virtualMachine.process();
+          String virtualMachineOut = inputStreamToString(process.getInputStream());
+          String virtualMachineError = inputStreamToString(process.getErrorStream());
+          onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -137,7 +147,9 @@ public abstract class Debugger {
         disableActiveStepRequest();
         StepRequest requestedStepRequest = stepRequestMap.get(stepRequestDepth);
         if (requestedStepRequest == null) {
-          requestedStepRequest = model.createStepRequest(threadReference, stepRequestDepth);
+          synchronized (threadReferenceControl) {
+            requestedStepRequest = model.createStepRequest(threadReference, stepRequestDepth);
+          }
           stepRequestMap.put(stepRequestDepth, requestedStepRequest);
         }
         model.setEventRequestEnabled(requestedStepRequest, true);
@@ -173,12 +185,18 @@ public abstract class Debugger {
     if (debugClass == null) {
       return;
     }
-    view.setSelectedLocation(new DebugClassLocation(debugClass, location.lineNumber()));
-    view.setAllControlButtonsEnabled(true);
 
+    DebugClassLocation updatedLocation = new DebugClassLocation(debugClass, location.lineNumber());
+    DebugClassLocation previousLocation = view.setSelectedLocation(updatedLocation);
+
+    if (updatedLocation.equals(previousLocation) && activeStepRequestDepth == StepRequest.STEP_INTO) {
+      virtualMachine.resume();
+      return;
+    }
+
+    view.setAllControlButtonsEnabled(true);
     onVirtualMachineSuspension(location, deserializeVariables(thread));
     awaitEventProcessingContinuation();
-
     onVirtualMachineContinuation();
     view.setAllControlButtonsEnabled(false);
   }
@@ -247,7 +265,7 @@ public abstract class Debugger {
     StackFrame frame = thread.frame(0);
     Map<String, Object> deserializedVariables = new HashMap<>();
     Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
-    model.disableAllEventRequests();
+    model.overrideAllEventRequests();
     for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
       deserializedVariables.put(entry.getKey().name(), deserializeReference(thread, entry.getValue()));
     }

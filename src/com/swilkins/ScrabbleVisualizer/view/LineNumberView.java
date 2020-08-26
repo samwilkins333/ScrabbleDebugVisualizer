@@ -1,7 +1,5 @@
 package com.swilkins.ScrabbleVisualizer.view;
 
-import com.swilkins.ScrabbleVisualizer.debug.DebugClass;
-
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
@@ -110,8 +108,8 @@ public class LineNumberView extends JPanel
     this.updateFont = updateFont;
   }
 
-  public void setBreakpointLines(DebugClass debugClass) {
-    this.breakpointLines = debugClass.getBreakpoints();
+  public void setBreakpointLines(Set<Integer> breakpointLines) {
+    this.breakpointLines = breakpointLines;
     repaint();
   }
 
