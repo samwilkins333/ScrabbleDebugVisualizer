@@ -83,6 +83,7 @@ public class ScrabbleVisualizer extends Debugger {
       JButton controlButton = view.addDefaultControlButton(control);
       URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
       controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
+      controlButton.setFocusPainted(false);
     }
   }
 
@@ -136,11 +137,12 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void onVirtualMachineEvent(Event event) throws Exception {
     if (event instanceof BreakpointEvent) {
-      disableActiveStepRequest();
+      model.disableActiveStepRequest();
       suspend((LocatableEvent) event);
     } else if (event instanceof StepEvent) {
       Class<?> clazz = toClass(((StepEvent) event).location());
       if (clazz != null && model.getDebugClassFor(clazz) != null) {
+        System.out.println(event + " " + model.getActiveStepRequestDepth());
         suspend((StepEvent) event);
       }
     }

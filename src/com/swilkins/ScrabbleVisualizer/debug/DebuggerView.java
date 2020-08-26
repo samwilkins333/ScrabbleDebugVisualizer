@@ -65,7 +65,7 @@ public class DebuggerView extends JPanel {
     add(defaultControlPanel);
   }
 
-  public void setDefaultActionListeners(Map<DebuggerControl, ActionListener> defaultActionListeners) {
+  public void setDefaultControlActionListeners(Map<DebuggerControl, ActionListener> defaultActionListeners) {
     JButton controlButton;
     for (Map.Entry<DebuggerControl, ActionListener> defaultControlButton : defaultActionListeners.entrySet()) {
       DebuggerControl control = defaultControlButton.getKey();

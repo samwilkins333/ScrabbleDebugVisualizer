@@ -25,14 +25,6 @@ public abstract class Debugger {
   protected final DebuggerModel model;
   private final Class<?> virtualMachineTargetClass;
 
-  protected ThreadReference threadReference;
-  private final Map<Integer, StepRequest> stepRequestMap = new HashMap<>(3);
-  protected Integer activeStepRequestDepth;
-
-  protected final Object eventProcessingControl = new Object();
-  protected final Object stepRequestControl = new Object();
-  protected final Object threadReferenceControl = new Object();
-
   protected final Map<String, Deserializer> deserializers = new HashMap<>();
   private final Deserializer toString = (object, thread) ->
           deserializeReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
@@ -46,32 +38,8 @@ public abstract class Debugger {
     configureModel();
 
     view = new DebuggerView();
-    Map<DebuggerControl, ActionListener> defaultActionListeners = new LinkedHashMap<>();
-    defaultActionListeners.put(RUN, e -> {
-      if (!started) {
-        start();
-      } else {
-        resume();
-      }
-    });
-    defaultActionListeners.put(STEP_OVER, e -> activateStepRequest(StepRequest.STEP_OVER));
-    defaultActionListeners.put(STEP_INTO, e -> activateStepRequest(StepRequest.STEP_INTO));
-    defaultActionListeners.put(STEP_OUT, e -> activateStepRequest(StepRequest.STEP_OUT));
-    defaultActionListeners.put(TOGGLE_BREAKPOINT, e -> {
-      try {
-        DebugClassLocation selectedLocation = view.getSelectedLocation();
-        BreakpointRequest breakpointRequest = model.getBreakpointRequestAt(selectedLocation);
-        if (breakpointRequest == null) {
-          model.createBreakpointRequest(selectedLocation);
-        } else {
-          model.setEventRequestEnabled(breakpointRequest, !breakpointRequest.isEnabled());
-        }
-        view.repaint();
-      } catch (AbsentInformationException ex) {
-        view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
-      }
-    });
-    view.setDefaultActionListeners(defaultActionListeners);
+
+    view.setDefaultControlActionListeners(getDefaultControlActionListeners());
     configureView();
 
     configureDeserializers();
@@ -113,9 +81,7 @@ public abstract class Debugger {
           while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
             for (Event event : eventSet) {
               if (event instanceof LocatableEvent) {
-                synchronized (threadReferenceControl) {
-                  threadReference = ((LocatableEvent) event).thread();
-                }
+                model.setThreadReference(((LocatableEvent) event).thread());
               }
               if (event instanceof ClassPrepareEvent) {
                 model.createDebugClassFrom((ClassPrepareEvent) event);
@@ -139,39 +105,43 @@ public abstract class Debugger {
     }
   }
 
-  protected void activateStepRequest(int stepRequestDepth) {
-    synchronized (stepRequestControl) {
-      if (activeStepRequestDepth == null || activeStepRequestDepth != stepRequestDepth) {
-        disableActiveStepRequest();
-        StepRequest requestedStepRequest = stepRequestMap.get(stepRequestDepth);
-        if (requestedStepRequest == null) {
-          synchronized (threadReferenceControl) {
-            requestedStepRequest = model.createStepRequest(threadReference, stepRequestDepth);
-          }
-          stepRequestMap.put(stepRequestDepth, requestedStepRequest);
-        }
-        model.setEventRequestEnabled(requestedStepRequest, true);
-        activeStepRequestDepth = stepRequestDepth;
+  private Map<DebuggerControl, ActionListener> getDefaultControlActionListeners() {
+    Map<DebuggerControl, ActionListener> defaultControlActionListeners = new LinkedHashMap<>();
+    defaultControlActionListeners.put(RUN, e -> {
+      if (!started) {
+        start();
+      } else {
+        model.disableActiveStepRequest();
+        model.resumeEventProcessing();
       }
-    }
-    resumeEventProcessing();
-  }
-
-  protected void disableActiveStepRequest() {
-    synchronized (stepRequestControl) {
-      if (activeStepRequestDepth != null) {
-        StepRequest activeStepRequest = stepRequestMap.get(activeStepRequestDepth);
-        if (activeStepRequest != null) {
-          model.setEventRequestEnabled(activeStepRequest, false);
+    });
+    defaultControlActionListeners.put(STEP_OVER, e -> {
+      model.setActiveStepRequestDepth(StepRequest.STEP_OVER);
+      model.resumeEventProcessing();
+    });
+    defaultControlActionListeners.put(STEP_INTO, e -> {
+      model.setActiveStepRequestDepth(StepRequest.STEP_INTO);
+      model.resumeEventProcessing();
+    });
+    defaultControlActionListeners.put(STEP_OUT, e -> {
+      model.setActiveStepRequestDepth(StepRequest.STEP_OUT);
+      model.resumeEventProcessing();
+    });
+    defaultControlActionListeners.put(TOGGLE_BREAKPOINT, e -> {
+      try {
+        DebugClassLocation selectedLocation = view.getSelectedLocation();
+        BreakpointRequest breakpointRequest = model.getBreakpointRequestAt(selectedLocation);
+        if (breakpointRequest == null) {
+          model.createBreakpointRequest(selectedLocation);
+        } else {
+          model.setEventRequestEnabled(breakpointRequest, !breakpointRequest.isEnabled());
         }
-        activeStepRequestDepth = null;
+        view.repaint();
+      } catch (AbsentInformationException ex) {
+        view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
-    }
-  }
-
-  protected void resume() {
-    disableActiveStepRequest();
-    resumeEventProcessing();
+    });
+    return defaultControlActionListeners;
   }
 
   protected void suspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
@@ -187,32 +157,19 @@ public abstract class Debugger {
     DebugClassLocation updatedLocation = new DebugClassLocation(debugClass, location.lineNumber());
     DebugClassLocation previousLocation = view.setSelectedLocation(updatedLocation);
 
-    if (activeStepRequestDepth != null && StepRequest.STEP_INTO == activeStepRequestDepth && updatedLocation.equals(previousLocation)) {
-      virtualMachine.resume();
-      return;
+    Integer activeStepRequestDepth = model.getActiveStepRequestDepth();
+    if (activeStepRequestDepth != null && updatedLocation.equals(previousLocation)) {
+      if (activeStepRequestDepth == StepRequest.STEP_INTO || activeStepRequestDepth == StepRequest.STEP_OUT) {
+        virtualMachine.resume();
+        return;
+      }
     }
 
     view.setAllControlButtonsEnabled(true);
     onVirtualMachineSuspension(location, deserializeVariables(thread));
-    awaitEventProcessingContinuation();
+    model.awaitEventProcessingContinuation();
     onVirtualMachineContinuation();
     view.setAllControlButtonsEnabled(false);
-  }
-
-  protected void awaitEventProcessingContinuation() {
-    synchronized (eventProcessingControl) {
-      try {
-        eventProcessingControl.wait();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-  }
-
-  private void resumeEventProcessing() {
-    synchronized (eventProcessingControl) {
-      eventProcessingControl.notifyAll();
-    }
   }
 
   protected Class<?> toClass(Location location) {
