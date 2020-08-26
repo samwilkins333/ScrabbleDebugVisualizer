@@ -20,6 +20,7 @@ import com.swilkins.ScrabbleVisualizer.view.WatchView;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -33,13 +34,14 @@ import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToStr
 public class ScrabbleVisualizer extends Debugger {
 
   private static final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+  private final JFrame frame;
   private WatchView watchView;
   public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
 
   public ScrabbleVisualizer() throws Exception {
     super(GeneratorTarget.class);
 
-    JFrame frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
+    frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setSize(screenSize.width, screenSize.height - 60);
     frame.setResizable(false);
@@ -129,7 +131,6 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
-    watchView.setDefaultView();
   }
 
   @Override
@@ -160,8 +161,8 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
-    watchView.setOutputView(virtualMachineOut, virtualMachineError);
-    watchView.setEnabled(true);
+    System.out.println(String.format("Output:\n%s\n\nError:\n%s", virtualMachineOut, virtualMachineError));
+    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
   }
 
 }

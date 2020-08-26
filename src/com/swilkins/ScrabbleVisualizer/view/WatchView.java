@@ -124,15 +124,6 @@ public class WatchView extends JPanel {
     directionIcons.put(name, createImageIconFrom(url, ICON_DIMENSION));
   }
 
-  public void setDefaultView() {
-    tabbedPane.setSelectedIndex(0);
-  }
-
-  public void setOutputView(String output, String error) {
-    tabbedPane.setSelectedIndex(3);
-    outputView.setText(String.format("Output:\n%s\n\nError:\n%s", output, error));
-  }
-
   private void registerUpdaters() {
     updaters.put(new String[]{"board"}, (loc, args) -> {
       Object[] rows = (Object[]) args.next();

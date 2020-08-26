@@ -128,8 +128,6 @@ public abstract class Debugger {
             }
           }
         } catch (VMDisconnectedException e) {
-          started = false;
-          view.setControlButtonEnabled(RUN, true);
           Process process = virtualMachine.process();
           String virtualMachineOut = inputStreamToString(process.getInputStream());
           String virtualMachineError = inputStreamToString(process.getErrorStream());
