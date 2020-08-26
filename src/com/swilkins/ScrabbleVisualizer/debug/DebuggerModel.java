@@ -131,7 +131,7 @@ public class DebuggerModel {
     for (Class<?> clazz : debugClassSources.keySet()) {
       ClassPrepareRequest request = eventRequestManager.createClassPrepareRequest();
       request.addClassFilter(clazz.getName());
-      request.enable();
+      setEventRequestEnabled(request, true);
     }
   }
 

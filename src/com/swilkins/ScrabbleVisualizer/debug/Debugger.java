@@ -108,6 +108,7 @@ public abstract class Debugger {
   private Map<DebuggerControl, ActionListener> getDefaultControlActionListeners() {
     Map<DebuggerControl, ActionListener> defaultControlActionListeners = new LinkedHashMap<>();
     defaultControlActionListeners.put(RUN, e -> {
+      view.setControlButtonEnabled(RUN, false);
       if (!started) {
         start();
       } else {
@@ -165,11 +166,11 @@ public abstract class Debugger {
       }
     }
 
-    view.setAllControlButtonsEnabled(true);
     onVirtualMachineSuspension(location, deserializeVariables(thread));
+    view.setAllControlButtonsEnabled(true);
     model.awaitEventProcessingContinuation();
-    onVirtualMachineContinuation();
     view.setAllControlButtonsEnabled(false);
+    onVirtualMachineContinuation();
   }
 
   protected Class<?> toClass(Location location) {
