@@ -60,7 +60,7 @@ public class ScrabbleVisualizer extends Debugger {
     model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
     model.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(210);
 
-    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true) {
+    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 25) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
