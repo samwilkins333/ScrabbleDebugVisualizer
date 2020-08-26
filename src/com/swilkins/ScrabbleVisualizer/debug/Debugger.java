@@ -146,7 +146,6 @@ public abstract class Debugger {
   }
 
   protected void suspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
-    ThreadReference thread = event.thread();
     Location location = event.location();
     Class<?> clazz = toClass(location);
 
@@ -161,12 +160,11 @@ public abstract class Debugger {
     Integer activeStepRequestDepth = model.getActiveStepRequestDepth();
     if (activeStepRequestDepth != null && updatedLocation.equals(previousLocation)) {
       if (activeStepRequestDepth == StepRequest.STEP_INTO || activeStepRequestDepth == StepRequest.STEP_OUT) {
-        virtualMachine.resume();
         return;
       }
     }
 
-    onVirtualMachineSuspension(location, deserializeVariables(thread));
+    onVirtualMachineSuspension(location, deserializeVariables(event.thread()));
     view.setAllControlButtonsEnabled(true);
     model.awaitEventProcessingContinuation();
     view.setAllControlButtonsEnabled(false);

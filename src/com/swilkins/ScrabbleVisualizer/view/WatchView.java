@@ -51,7 +51,8 @@ public class WatchView extends JPanel {
     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
     boardView = new JPanel(new GridLayout(STANDARD_BOARD_DIMENSIONS, STANDARD_BOARD_DIMENSIONS, 0, 0));
     boardView.setBackground(Color.WHITE);
-    boardView.setPreferredSize(new Dimension(dimension.height, dimension.height));
+    int boardViewSize = dimension.height;
+    boardView.setPreferredSize(new Dimension(boardViewSize, boardViewSize));
     boardView.setBorder(new EmptyBorder(5, 9, 3, 0));
     for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
       for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
