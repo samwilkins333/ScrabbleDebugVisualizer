@@ -33,7 +33,12 @@ import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToStr
 
 public class ScrabbleVisualizer extends Debugger {
 
-  private static final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+  private static final Dimension verticalScreenHalf;
+  static {
+    Dimension resolution = Toolkit.getDefaultToolkit().getScreenSize();
+    verticalScreenHalf = new Dimension(resolution.width, (resolution.height - 60) / 2);
+  }
+
   private final JFrame frame;
   private WatchView watchView;
   public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
@@ -43,13 +48,13 @@ public class ScrabbleVisualizer extends Debugger {
 
     frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setSize(screenSize.width, screenSize.height - 60);
+    frame.setSize(verticalScreenHalf.width, 2 * verticalScreenHalf.height);
     frame.setResizable(false);
 
     JPanel panel = new JPanel();
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
     panel.add(view);
-    panel.add(watchView = new WatchView(new Dimension(screenSize.width / 3, screenSize.height / 3)));
+    panel.add(watchView = new WatchView(verticalScreenHalf));
 
     frame.getContentPane().add(panel);
     frame.setVisible(true);
@@ -72,12 +77,7 @@ public class ScrabbleVisualizer extends Debugger {
   @Override
   protected void configureView() {
     view.setOptions(null);
-
-    Dimension topThird = new Dimension(screenSize.width, screenSize.height / 3);
-    view.setPreferredSize(topThird);
-    view.setMinimumSize(topThird);
-    view.setMaximumSize(topThird);
-    view.setSize(topThird);
+    view.setPreferredSize(verticalScreenHalf);
 
     for (DebuggerControl control : DebuggerControl.values()) {
       JButton controlButton = view.addDefaultControlButton(control);
@@ -156,8 +156,8 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineContinuation() {
-    watchView.clean();
     watchView.setEnabled(false);
+    watchView.clean();
   }
 
   @Override

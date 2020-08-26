@@ -61,7 +61,7 @@ public class DebuggerView extends JPanel {
 
     defaultControlPanel = new JPanel();
     defaultControlPanel.setLayout(new BoxLayout(defaultControlPanel, BoxLayout.X_AXIS));
-    defaultControlPanel.setBorder(new EmptyBorder(5, 0, 5, 0));
+    defaultControlPanel.setBorder(new EmptyBorder(5, 0, 7, 0));
     add(defaultControlPanel);
   }
 

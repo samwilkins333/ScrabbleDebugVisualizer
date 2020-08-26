@@ -30,7 +30,6 @@ public class WatchView extends JPanel {
   private final JPanel boardView;
 
   private JTextArea candidates = new JTextArea();
-  private JTextArea outputView = new JTextArea();
   private JTextArea rawWatchedName = new JTextArea();
   private JTextArea rawWatchedValue = new JTextArea();
 
@@ -47,12 +46,13 @@ public class WatchView extends JPanel {
     createIcon("left");
     createIcon("right");
 
+    setPreferredSize(dimension);
     setBackground(Color.WHITE);
     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
     boardView = new JPanel(new GridLayout(STANDARD_BOARD_DIMENSIONS, STANDARD_BOARD_DIMENSIONS, 0, 0));
     boardView.setBackground(Color.WHITE);
-    boardView.setPreferredSize(dimension);
-    boardView.setBorder(new EmptyBorder(0, 5, 0, 5));
+    boardView.setPreferredSize(new Dimension(dimension.height, dimension.height));
+    boardView.setBorder(new EmptyBorder(5, 9, 3, 0));
     for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
       for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
         JLabel cell = new JLabel("", SwingConstants.CENTER);
@@ -70,8 +70,8 @@ public class WatchView extends JPanel {
     add(boardView);
 
     tabbedPane = new JTabbedPane();
-    tabbedPane.setPreferredSize(new Dimension(dimension.width * 2, dimension.height));
-
+    tabbedPane.setPreferredSize(new Dimension(dimension.width - dimension.height, dimension.height));
+    tabbedPane.setBorder(new EmptyBorder(6, 1, -1, 3));
     JScrollPane scrollPane;
 
     JPanel rack = new JPanel();
@@ -109,6 +109,7 @@ public class WatchView extends JPanel {
     scrollPane.setBorder(BorderFactory.createEmptyBorder());
     tabbedPane.addTab("Candidates (0)", scrollPane);
 
+    JTextArea outputView = new JTextArea();
     outputView.setEditable(false);
     outputView.setHighlighter(null);
     scrollPane = new JScrollPane(outputView);
