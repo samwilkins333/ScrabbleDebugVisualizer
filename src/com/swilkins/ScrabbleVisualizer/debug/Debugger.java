@@ -145,7 +145,7 @@ public abstract class Debugger {
     return defaultControlActionListeners;
   }
 
-  protected void suspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
+  protected void trySuspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
     Location location = event.location();
     Class<?> clazz = toClass(location);
 

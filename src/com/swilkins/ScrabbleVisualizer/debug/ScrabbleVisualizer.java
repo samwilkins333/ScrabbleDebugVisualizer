@@ -4,10 +4,8 @@ import com.sun.jdi.Location;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.Value;
 import com.sun.jdi.connect.Connector;
-import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.LocatableEvent;
-import com.sun.jdi.event.StepEvent;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Tile;
@@ -34,6 +32,7 @@ import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToStr
 public class ScrabbleVisualizer extends Debugger {
 
   private static final Dimension verticalScreenHalf;
+
   static {
     Dimension resolution = Toolkit.getDefaultToolkit().getScreenSize();
     verticalScreenHalf = new Dimension(resolution.width, (resolution.height - 60) / 2);
@@ -65,7 +64,7 @@ public class ScrabbleVisualizer extends Debugger {
     model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
     model.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(210);
 
-    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 25) {
+    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 25) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
@@ -136,13 +135,11 @@ public class ScrabbleVisualizer extends Debugger {
 
   @Override
   protected void onVirtualMachineEvent(Event event) throws Exception {
-    if (event instanceof BreakpointEvent) {
-      model.disableActiveStepRequest();
-      suspend((LocatableEvent) event);
-    } else if (event instanceof StepEvent) {
-      Class<?> clazz = toClass(((StepEvent) event).location());
+    if (event instanceof LocatableEvent) {
+      LocatableEvent locatableEvent = (LocatableEvent) event;
+      Class<?> clazz = toClass(locatableEvent.location());
       if (clazz != null && model.getDebugClassFor(clazz) != null) {
-        suspend((StepEvent) event);
+        trySuspend(locatableEvent);
       }
     }
     virtualMachine.resume();
