@@ -32,7 +32,7 @@ public abstract class Debugger extends JFrame {
   }
 
   protected final DebuggerSourceView debuggerSourceView;
-  protected final DebuggerWatchView debuggerWatchView;
+  protected DebuggerWatchView debuggerWatchView = null;
   protected final DebuggerModel debuggerModel;
   private final Class<?> virtualMachineTargetClass;
   private final Set<BiConsumer<Dimension, Integer>> onSplitResizeListeners = new HashSet<>();
@@ -43,7 +43,7 @@ public abstract class Debugger extends JFrame {
 
   private boolean started;
 
-  public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
+  public Debugger(Class<?> virtualMachineTargetClass, DebuggerWatchView debuggerWatchView) throws Exception {
     super(virtualMachineTargetClass.getSimpleName());
     this.virtualMachineTargetClass = virtualMachineTargetClass;
 
@@ -61,9 +61,12 @@ public abstract class Debugger extends JFrame {
     debuggerSourceView.setPreferredSize(verticalScreenHalf);
     configureDebuggerView();
 
-    debuggerWatchView = new DebuggerWatchView(verticalScreenHalf);
-    debuggerWatchView.setPreferredSize(verticalScreenHalf);
-    addOnSplitResizeListener(debuggerWatchView.onSplitResize());
+    if (debuggerWatchView != null) {
+      this.debuggerWatchView = debuggerWatchView;
+      this.debuggerWatchView.setPreferredSize(verticalScreenHalf);
+      this.debuggerWatchView.initialize(verticalScreenHalf);
+      addOnSplitResizeListener(this.debuggerWatchView.onSplitResize());
+    }
 
     JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, debuggerSourceView, debuggerWatchView);
     splitPane.setDividerLocation(verticalScreenHalf.height);
@@ -90,14 +93,18 @@ public abstract class Debugger extends JFrame {
 
   protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
 
-  protected void onVirtualMachineSuspension(Location location, Map<String, Object> unpackedVariables) {
-    debuggerWatchView.setEnabled(true);
-    debuggerWatchView.updateFrom(location, unpackedVariables);
+  protected void onVirtualMachineSuspension(Location location, Map<String, Object> deserializedVariables) {
+    if (debuggerWatchView != null) {
+      debuggerWatchView.setEnabled(true);
+      debuggerWatchView.updateFrom(location, deserializedVariables);
+    }
   }
 
   protected void onVirtualMachineContinuation() {
-    debuggerWatchView.setEnabled(false);
-    debuggerWatchView.clean();
+    if (debuggerWatchView != null) {
+      debuggerWatchView.setEnabled(false);
+      debuggerWatchView.clean();
+    }
   }
 
   protected void addOnSplitResizeListener(BiConsumer<Dimension, Integer> onSplitResizeListener) {

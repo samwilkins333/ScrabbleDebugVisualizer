@@ -13,6 +13,7 @@ import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
+import com.swilkins.ScrabbleVisualizer.view.DebuggerWatchView;
 
 import javax.swing.*;
 import java.awt.*;
@@ -26,23 +27,22 @@ import java.util.Map;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
-public class ScrabbleVisualizer extends Debugger {
+public class ScrabbleBaseDebugger extends Debugger {
 
   public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
 
-  public ScrabbleVisualizer() throws Exception {
-    super(GeneratorTarget.class);
+  public ScrabbleBaseDebugger(DebuggerWatchView debuggerWatchView) throws Exception {
+    super(GeneratorTarget.class, debuggerWatchView);
   }
 
   @Override
   protected void configureDebuggerModel() throws IOException, ClassNotFoundException {
     debuggerModel.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
     debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(210);
-
-    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 25) {
+    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 17, 25) {
       @Override
       public String getContentsAsString() {
-        InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
+        InputStream debugClassStream = ScrabbleBaseDebugger.class.getResourceAsStream("../executable/GeneratorTarget.java");
         return inputStreamToString(debugClassStream);
       }
     });
@@ -113,6 +113,7 @@ public class ScrabbleVisualizer extends Debugger {
       LocatableEvent locatableEvent = (LocatableEvent) event;
       Class<?> clazz = toClass(locatableEvent.location());
       if (clazz != null && debuggerModel.getDebugClassFor(clazz) != null) {
+        debuggerModel.setEventRequestEnabled(event.request(), false);
         trySuspend(locatableEvent);
       }
     }
