@@ -113,7 +113,6 @@ public class ScrabbleBaseDebugger extends Debugger {
       LocatableEvent locatableEvent = (LocatableEvent) event;
       Class<?> clazz = toClass(locatableEvent.location());
       if (clazz != null && debuggerModel.getDebugClassFor(clazz) != null) {
-        debuggerModel.setEventRequestEnabled(event.request(), false);
         trySuspend(locatableEvent);
       }
     }
