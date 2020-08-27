@@ -1,6 +1,5 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
-import com.sun.jdi.Location;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.Value;
 import com.sun.jdi.connect.Connector;
@@ -14,11 +13,9 @@ import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
-import com.swilkins.ScrabbleVisualizer.view.WatchView;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -31,40 +28,18 @@ import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToStr
 
 public class ScrabbleVisualizer extends Debugger {
 
-  private static final Dimension verticalScreenHalf;
-
-  static {
-    Dimension resolution = Toolkit.getDefaultToolkit().getScreenSize();
-    verticalScreenHalf = new Dimension(resolution.width, (resolution.height - 60) / 2);
-  }
-
-  private final JFrame frame;
-  private WatchView watchView;
   public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
 
   public ScrabbleVisualizer() throws Exception {
     super(GeneratorTarget.class);
-
-    frame = new JFrame(ScrabbleVisualizer.class.getSimpleName());
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setSize(verticalScreenHalf.width, 2 * verticalScreenHalf.height);
-    frame.setResizable(false);
-
-    JPanel panel = new JPanel();
-    panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    panel.add(view);
-    panel.add(watchView = new WatchView(verticalScreenHalf));
-
-    frame.getContentPane().add(panel);
-    frame.setVisible(true);
   }
 
   @Override
-  protected void configureModel() throws IOException, ClassNotFoundException {
-    model.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    model.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(210);
+  protected void configureDebuggerModel() throws IOException, ClassNotFoundException {
+    debuggerModel.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
+    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(210);
 
-    model.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 25) {
+    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 25) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleVisualizer.class.getResourceAsStream("../executable/GeneratorTarget.java");
@@ -74,12 +49,11 @@ public class ScrabbleVisualizer extends Debugger {
   }
 
   @Override
-  protected void configureView() {
-    view.setOptions(null);
-    view.setPreferredSize(verticalScreenHalf);
+  protected void configureDebuggerView() {
+    debuggerSourceView.setOptions(null);
 
     for (DebuggerControl control : DebuggerControl.values()) {
-      JButton controlButton = view.addDefaultControlButton(control);
+      JButton controlButton = debuggerSourceView.addDefaultControlButton(control);
       URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
       controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
       controlButton.setFocusPainted(false);
@@ -138,7 +112,7 @@ public class ScrabbleVisualizer extends Debugger {
     if (event instanceof LocatableEvent) {
       LocatableEvent locatableEvent = (LocatableEvent) event;
       Class<?> clazz = toClass(locatableEvent.location());
-      if (clazz != null && model.getDebugClassFor(clazz) != null) {
+      if (clazz != null && debuggerModel.getDebugClassFor(clazz) != null) {
         trySuspend(locatableEvent);
       }
     }
@@ -146,21 +120,8 @@ public class ScrabbleVisualizer extends Debugger {
   }
 
   @Override
-  protected void onVirtualMachineSuspension(Location location, Map<String, Object> unpackedVariables) {
-    watchView.setEnabled(true);
-    watchView.updateFrom(location, unpackedVariables);
-  }
-
-  @Override
-  protected void onVirtualMachineContinuation() {
-    watchView.setEnabled(false);
-    watchView.clean();
-  }
-
-  @Override
   protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
     System.out.println(String.format("Output:\n%s\n\nError:\n%s", virtualMachineOut, virtualMachineError));
-    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
   }
 
 }

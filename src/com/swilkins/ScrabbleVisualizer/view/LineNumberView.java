@@ -38,7 +38,7 @@ public class LineNumberView extends JPanel
   private final static int HEIGHT = Integer.MAX_VALUE - 1000000;
 
   //  Text component this TextTextLineNumber component is in sync with
-  private JTextComponent component;
+  private final JTextComponent component;
 
   //  Properties that can be changed
   private boolean updateFont;

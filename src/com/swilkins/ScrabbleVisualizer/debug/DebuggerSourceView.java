@@ -14,7 +14,7 @@ import java.util.*;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.RUN;
 
-public class DebuggerView extends JPanel {
+public class DebuggerSourceView extends JPanel {
 
   private final JScrollPane scrollWrapper;
 
@@ -26,7 +26,7 @@ public class DebuggerView extends JPanel {
   private DebugClassLocation selectedLocation;
   private boolean isCenteringPreservedOnClick = false;
 
-  public DebuggerView() {
+  public DebuggerSourceView() {
     super();
 
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -169,7 +169,7 @@ public class DebuggerView extends JPanel {
   public static class DebugClassTextView extends JTextArea {
     private final LineNumberView lineNumberView;
     private DebuggerViewOptions options = new DebuggerViewOptions();
-    private List<Rectangle2D> breakpointViews = new ArrayList<>();
+    private final List<Rectangle2D> breakpointViews = new ArrayList<>();
 
     public DebugClassTextView() {
       super();

@@ -4,8 +4,8 @@ import java.util.Objects;
 
 public class DebugClassLocation {
 
-  private DebugClass debugClass;
-  private int lineNumber;
+  private final DebugClass debugClass;
+  private final int lineNumber;
 
   public DebugClassLocation(DebugClass debugClass, int lineNumber) {
     this.debugClass = debugClass;

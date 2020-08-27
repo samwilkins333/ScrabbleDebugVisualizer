@@ -16,9 +16,9 @@ import static com.swilkins.ScrabbleBase.Board.Configuration.STANDARD_RACK_CAPACI
 import static com.swilkins.ScrabbleVisualizer.debug.ScrabbleVisualizer.ICON_DIMENSION;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 
-public class WatchView extends JPanel {
+public class DebuggerWatchView extends JPanel {
 
-  private JTabbedPane tabbedPane;
+  private final JTabbedPane tabbedPane;
 
   private final JLabel[][] cells = new JLabel[STANDARD_BOARD_DIMENSIONS][STANDARD_BOARD_DIMENSIONS];
   private JLabel currentCell;
@@ -29,14 +29,14 @@ public class WatchView extends JPanel {
 
   private final JPanel boardView;
 
-  private JTextArea candidates = new JTextArea();
-  private JTextArea rawWatchedName = new JTextArea();
-  private JTextArea rawWatchedValue = new JTextArea();
+  private final JTextArea candidates = new JTextArea();
+  private final JTextArea rawWatchedName = new JTextArea();
+  private final JTextArea rawWatchedValue = new JTextArea();
 
-  private List<Object[]> currentPlacements = new ArrayList<>();
-  private Map<String[], BiConsumer<Location, Iterator<Object>>> updaters = new LinkedHashMap<>();
+  private final List<Object[]> currentPlacements = new ArrayList<>();
+  private final Map<String[], BiConsumer<Location, Iterator<Object>>> updaters = new LinkedHashMap<>();
 
-  public WatchView(Dimension dimension) {
+  public DebuggerWatchView(Dimension dimension) {
     super();
 
     registerUpdaters();
@@ -46,7 +46,6 @@ public class WatchView extends JPanel {
     createIcon("left");
     createIcon("right");
 
-    setPreferredSize(dimension);
     setBackground(Color.WHITE);
     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
     boardView = new JPanel(new GridLayout(STANDARD_BOARD_DIMENSIONS, STANDARD_BOARD_DIMENSIONS, 0, 0));
@@ -126,8 +125,20 @@ public class WatchView extends JPanel {
     directionIcons.put(name, createImageIconFrom(url, ICON_DIMENSION));
   }
 
+  public BiConsumer<Dimension, Integer> onSplitResize() {
+    return (screenDimension, location) -> {
+      int size = screenDimension.height - location;
+      boardView.setPreferredSize(new Dimension(size, size));
+      tabbedPane.setPreferredSize(new Dimension(screenDimension.width - size, size));
+    };
+  }
+
+  private void registerUpdater(BiConsumer<Location, Iterator<Object>> updater, String... variableDependencyNames) {
+    updaters.put(variableDependencyNames, updater);
+  }
+
   private void registerUpdaters() {
-    updaters.put(new String[]{"board"}, (loc, args) -> {
+    registerUpdater((loc, args) -> {
       Object[] rows = (Object[]) args.next();
       for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
         Object[] row = (Object[]) rows[y];
@@ -140,13 +151,15 @@ public class WatchView extends JPanel {
           }
         }
       }
-    });
-    updaters.put(new String[]{"y", "x", "dir"}, (loc, args) -> {
+    }, "board");
+
+    registerUpdater((loc, args) -> {
       currentCell = cells[(int) args.next()][(int) args.next()];
       currentCell.setBackground(Color.YELLOW);
       currentCell.setIcon(directionIcons.get(args.next().toString()));
-    });
-    updaters.put(new String[]{"placed"}, (loc, args) -> {
+    }, "y", "x", "dir");
+
+    registerUpdater((loc, args) -> {
       Object[] placements = (Object[]) args.next();
       for (Object placement : placements) {
         Object[] components = (Object[]) placement;
@@ -160,8 +173,9 @@ public class WatchView extends JPanel {
           }
         }
       }
-    });
-    updaters.put(new String[]{"rack"}, (loc, args) -> {
+    }, "placed");
+
+    registerUpdater((loc, args) -> {
       int i = 0;
       for (Object tile : (Object[]) args.next()) {
         Object[] components = (Object[]) tile;
@@ -169,8 +183,9 @@ public class WatchView extends JPanel {
           rack[i++].setText(tileRepresentation(components));
         }
       }
-    });
-    updaters.put(new String[]{"all"}, (loc, args) -> {
+    }, "rack");
+
+    registerUpdater((loc, args) -> {
       Object[] all = (Object[]) args.next();
       tabbedPane.setTitleAt(2, String.format("Candidates (%d)", all.length));
       StringBuilder builder = new StringBuilder();
@@ -179,7 +194,7 @@ public class WatchView extends JPanel {
         builder.append(((Object[]) candidate)[1]).append("\n");
       }
       candidates.setText(builder.toString());
-    });
+    }, "all");
   }
 
   @Override

@@ -5,7 +5,7 @@ public enum DebuggerExceptionType {
   VIRTUAL_MACHINE("virtual machine"),
   DEBUGGER("debugger");
 
-  private String locationName;
+  private final String locationName;
 
   DebuggerExceptionType(String locationName) {
     this.locationName = locationName;

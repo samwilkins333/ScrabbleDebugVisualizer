@@ -3,27 +3,39 @@ package com.swilkins.ScrabbleVisualizer.debug;
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
+import com.sun.jdi.event.Event;
 import com.sun.jdi.event.*;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.StepRequest;
+import com.swilkins.ScrabbleVisualizer.view.DebuggerWatchView;
 
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.function.BiConsumer;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
-public abstract class Debugger {
+public abstract class Debugger extends JFrame {
 
   protected VirtualMachine virtualMachine;
 
-  protected final DebuggerView view;
-  protected final DebuggerModel model;
+  private static final Dimension screenDimension;
+
+  static {
+    Dimension resolution = Toolkit.getDefaultToolkit().getScreenSize();
+    screenDimension = new Dimension(resolution.width, resolution.height - 60);
+  }
+
+  protected final DebuggerSourceView debuggerSourceView;
+  protected final DebuggerWatchView debuggerWatchView;
+  protected final DebuggerModel debuggerModel;
   private final Class<?> virtualMachineTargetClass;
+  private final Set<BiConsumer<Dimension, Integer>> onSplitResizeListeners = new HashSet<>();
 
   protected final Map<String, Deserializer> deserializers = new HashMap<>();
   private final Deserializer toString = (object, thread) ->
@@ -32,22 +44,43 @@ public abstract class Debugger {
   private boolean started;
 
   public Debugger(Class<?> virtualMachineTargetClass) throws Exception {
+    super(virtualMachineTargetClass.getSimpleName());
     this.virtualMachineTargetClass = virtualMachineTargetClass;
 
-    model = new DebuggerModel();
-    configureModel();
+    setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    setSize(screenDimension.width, screenDimension.height);
+    setResizable(false);
 
-    view = new DebuggerView();
+    debuggerModel = new DebuggerModel();
+    configureDebuggerModel();
 
-    view.setDefaultControlActionListeners(getDefaultControlActionListeners());
-    configureView();
+    Dimension verticalScreenHalf = new Dimension(screenDimension.width, screenDimension.height / 2);
+
+    debuggerSourceView = new DebuggerSourceView();
+    debuggerSourceView.setDefaultControlActionListeners(getDefaultControlActionListeners());
+    debuggerSourceView.setPreferredSize(verticalScreenHalf);
+    configureDebuggerView();
+
+    debuggerWatchView = new DebuggerWatchView(verticalScreenHalf);
+    debuggerWatchView.setPreferredSize(verticalScreenHalf);
+    addOnSplitResizeListener(debuggerWatchView.onSplitResize());
+
+    JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, debuggerSourceView, debuggerWatchView);
+    splitPane.setDividerLocation(verticalScreenHalf.height);
+    splitPane.addPropertyChangeListener(e -> {
+      if (e.getPropertyName().equals("dividerLocation")) {
+        int location = (int) e.getNewValue();
+        onSplitResizeListeners.forEach(listener -> listener.accept(screenDimension, location));
+      }
+    });
+    getContentPane().add(splitPane);
 
     configureDeserializers();
   }
 
-  protected abstract void configureModel() throws IOException, ClassNotFoundException;
+  protected abstract void configureDebuggerModel() throws IOException, ClassNotFoundException;
 
-  protected abstract void configureView();
+  protected abstract void configureDebuggerView();
 
   protected abstract void configureDeserializers();
 
@@ -55,11 +88,21 @@ public abstract class Debugger {
 
   protected abstract void onVirtualMachineEvent(Event event) throws Exception;
 
-  protected abstract void onVirtualMachineSuspension(Location location, Map<String, Object> unpackedVariables);
-
-  protected abstract void onVirtualMachineContinuation();
-
   protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
+
+  protected void onVirtualMachineSuspension(Location location, Map<String, Object> unpackedVariables) {
+    debuggerWatchView.setEnabled(true);
+    debuggerWatchView.updateFrom(location, unpackedVariables);
+  }
+
+  protected void onVirtualMachineContinuation() {
+    debuggerWatchView.setEnabled(false);
+    debuggerWatchView.clean();
+  }
+
+  protected void addOnSplitResizeListener(BiConsumer<Dimension, Integer> onSplitResizeListener) {
+    onSplitResizeListeners.add(onSplitResizeListener);
+  }
 
   private void start() {
     if (!started) {
@@ -74,21 +117,21 @@ public abstract class Debugger {
         EventSet eventSet;
         try {
           virtualMachine = launchingConnector.launch(arguments);
-          model.setEventRequestManager(virtualMachine.eventRequestManager());
-          model.submitDebugClassSources();
-          model.enableExceptionReporting(true, true);
+          debuggerModel.setEventRequestManager(virtualMachine.eventRequestManager());
+          debuggerModel.submitDebugClassSources();
+          debuggerModel.enableExceptionReporting(true, true);
 
           while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
             for (Event event : eventSet) {
               if (event instanceof LocatableEvent) {
-                model.setThreadReference(((LocatableEvent) event).thread());
+                debuggerModel.setThreadReference(((LocatableEvent) event).thread());
               }
               if (event instanceof ClassPrepareEvent) {
-                model.createDebugClassFrom((ClassPrepareEvent) event);
+                debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
               } else if (event instanceof ExceptionEvent) {
                 ExceptionEvent exceptionEvent = (ExceptionEvent) event;
                 Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
-                view.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
+                debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
               }
               onVirtualMachineEvent(event);
             }
@@ -98,6 +141,7 @@ public abstract class Debugger {
           String virtualMachineOut = inputStreamToString(process.getInputStream());
           String virtualMachineError = inputStreamToString(process.getErrorStream());
           onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
+          dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -108,38 +152,38 @@ public abstract class Debugger {
   private Map<DebuggerControl, ActionListener> getDefaultControlActionListeners() {
     Map<DebuggerControl, ActionListener> defaultControlActionListeners = new LinkedHashMap<>();
     defaultControlActionListeners.put(RUN, e -> {
-      view.setControlButtonEnabled(RUN, false);
+      debuggerSourceView.setControlButtonEnabled(RUN, false);
       if (!started) {
         start();
       } else {
-        model.disableActiveStepRequest();
-        model.resumeEventProcessing();
+        debuggerModel.disableActiveStepRequest();
+        debuggerModel.resumeEventProcessing();
       }
     });
     defaultControlActionListeners.put(STEP_OVER, e -> {
-      model.setActiveStepRequestDepth(StepRequest.STEP_OVER);
-      model.resumeEventProcessing();
+      debuggerModel.setActiveStepRequestDepth(StepRequest.STEP_OVER);
+      debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(STEP_INTO, e -> {
-      model.setActiveStepRequestDepth(StepRequest.STEP_INTO);
-      model.resumeEventProcessing();
+      debuggerModel.setActiveStepRequestDepth(StepRequest.STEP_INTO);
+      debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(STEP_OUT, e -> {
-      model.setActiveStepRequestDepth(StepRequest.STEP_OUT);
-      model.resumeEventProcessing();
+      debuggerModel.setActiveStepRequestDepth(StepRequest.STEP_OUT);
+      debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(TOGGLE_BREAKPOINT, e -> {
       try {
-        DebugClassLocation selectedLocation = view.getSelectedLocation();
-        BreakpointRequest breakpointRequest = model.getBreakpointRequestAt(selectedLocation);
+        DebugClassLocation selectedLocation = debuggerSourceView.getSelectedLocation();
+        BreakpointRequest breakpointRequest = debuggerModel.getBreakpointRequestAt(selectedLocation);
         if (breakpointRequest == null) {
-          model.createBreakpointRequest(selectedLocation);
+          debuggerModel.createBreakpointRequest(selectedLocation);
         } else {
-          model.setEventRequestEnabled(breakpointRequest, !breakpointRequest.isEnabled());
+          debuggerModel.setEventRequestEnabled(breakpointRequest, !breakpointRequest.isEnabled());
         }
-        view.repaint();
+        debuggerSourceView.repaint();
       } catch (AbsentInformationException ex) {
-        view.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
+        debuggerSourceView.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
     });
     return defaultControlActionListeners;
@@ -149,15 +193,15 @@ public abstract class Debugger {
     Location location = event.location();
     Class<?> clazz = toClass(location);
 
-    DebugClass debugClass = model.getDebugClassFor(clazz);
+    DebugClass debugClass = debuggerModel.getDebugClassFor(clazz);
     if (debugClass == null) {
       return;
     }
 
     DebugClassLocation updatedLocation = new DebugClassLocation(debugClass, location.lineNumber());
-    DebugClassLocation previousLocation = view.setSelectedLocation(updatedLocation);
+    DebugClassLocation previousLocation = debuggerSourceView.setSelectedLocation(updatedLocation);
 
-    Integer activeStepRequestDepth = model.getActiveStepRequestDepth();
+    Integer activeStepRequestDepth = debuggerModel.getActiveStepRequestDepth();
     if (activeStepRequestDepth != null && updatedLocation.equals(previousLocation)) {
       if (activeStepRequestDepth == StepRequest.STEP_INTO || activeStepRequestDepth == StepRequest.STEP_OUT) {
         return;
@@ -165,9 +209,9 @@ public abstract class Debugger {
     }
 
     onVirtualMachineSuspension(location, deserializeVariables(event.thread()));
-    view.setAllControlButtonsEnabled(true);
-    model.awaitEventProcessingContinuation();
-    view.setAllControlButtonsEnabled(false);
+    debuggerSourceView.setAllControlButtonsEnabled(true);
+    debuggerModel.awaitEventProcessingContinuation();
+    debuggerSourceView.setAllControlButtonsEnabled(false);
     onVirtualMachineContinuation();
   }
 
@@ -219,11 +263,11 @@ public abstract class Debugger {
     StackFrame frame = thread.frame(0);
     Map<String, Object> deserializedVariables = new HashMap<>();
     Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
-    model.overrideAllEventRequests();
+    debuggerModel.overrideAllEventRequests();
     for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
       deserializedVariables.put(entry.getKey().name(), deserializeReference(thread, entry.getValue()));
     }
-    model.restoreAllEventRequests();
+    debuggerModel.restoreAllEventRequests();
     return deserializedVariables;
   }
 
