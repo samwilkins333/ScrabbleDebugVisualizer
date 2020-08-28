@@ -134,11 +134,11 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
   }
 
   @Override
-  protected void onVariablesDeserialized(Map<String, Object> deserializedVariables) {
+  protected void onVariablesDereferenced(Map<String, Object> dereferencedVariables) {
     StringBuilder rawNameBuilder = new StringBuilder();
     StringBuilder rawValueBuilder = new StringBuilder();
 
-    List<Map.Entry<String, Object>> variables = new ArrayList<>(deserializedVariables.entrySet());
+    List<Map.Entry<String, Object>> variables = new ArrayList<>(dereferencedVariables.entrySet());
     variables.sort(Map.Entry.comparingByKey());
 
     for (Map.Entry<String, Object> entry : variables) {

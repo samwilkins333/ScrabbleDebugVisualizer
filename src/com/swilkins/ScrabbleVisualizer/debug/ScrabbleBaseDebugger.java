@@ -58,45 +58,45 @@ public class ScrabbleBaseDebugger extends Debugger {
   }
 
   @Override
-  protected void configureDeserializers() {
-    Deserializer unpackTileWrapper = (tileWrapper, thread) -> {
+  protected void configureDereferencers() {
+    Dereferencer unpackTileWrapper = (tileWrapper, thread) -> {
       Value tileReference = invoke(tileWrapper, thread, "getTile", null);
-      return deserializeReference(thread, tileReference);
+      return dereferenceValue(thread, tileReference);
     };
-    deserializers.put(BoardSquare.class.getName(), unpackTileWrapper);
-    deserializers.put(Direction.class.getName(), (direction, thread) -> {
+    dereferencerMap.put(BoardSquare.class.getName(), unpackTileWrapper);
+    dereferencerMap.put(Direction.class.getName(), (direction, thread) -> {
       ObjectReference directionNameReference = (ObjectReference) invoke(direction, thread, "name", null);
-      return deserializeReference(thread, invoke(directionNameReference, thread, "toString", null));
+      return dereferenceValue(thread, invoke(directionNameReference, thread, "toString", null));
     });
-    deserializers.put(Tile.class.getName(), (tile, thread) -> {
+    dereferencerMap.put(Tile.class.getName(), (tile, thread) -> {
       Value letter = invoke(tile, thread, "getLetter", null);
       Value proxy = invoke(tile, thread, "getLetterProxy", null);
-      return new Object[]{deserializeReference(thread, letter), deserializeReference(thread, proxy)};
+      return new Object[]{dereferenceValue(thread, letter), dereferenceValue(thread, proxy)};
     });
-    deserializers.put(Character.class.getName(), (character, thread) -> {
+    dereferencerMap.put(Character.class.getName(), (character, thread) -> {
       Value value = invoke(character, thread, "charValue", null);
-      return deserializeReference(thread, value);
+      return dereferenceValue(thread, value);
     });
-    deserializers.put(Candidate.class.getName(), (candidate, thread) -> {
-      int score = (int) deserializeReference(thread, invoke(candidate, thread, "getScore", null));
+    dereferencerMap.put(Candidate.class.getName(), (candidate, thread) -> {
+      int score = (int) dereferenceValue(thread, invoke(candidate, thread, "getScore", null));
       Value serialized = invoke(candidate, thread, "toString", null);
-      return new Object[]{score, deserializeReference(thread, serialized)};
+      return new Object[]{score, dereferenceValue(thread, serialized)};
     });
-    deserializers.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
-      int x = (int) deserializeReference(thread, invoke(tilePlacement, thread, "getX", null));
-      int y = (int) deserializeReference(thread, invoke(tilePlacement, thread, "getY", null));
-      return new Object[]{x, y, unpackTileWrapper.deserialize(tilePlacement, thread)};
+    dereferencerMap.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
+      int x = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getX", null));
+      int y = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getY", null));
+      return new Object[]{x, y, unpackTileWrapper.dereference(tilePlacement, thread)};
     });
-    deserializers.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> {
+    dereferencerMap.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> {
       Value tilePlacement = invoke(crossedTilePlacement, thread, "getRoot", null);
-      return deserializeReference(thread, tilePlacement);
+      return dereferenceValue(thread, tilePlacement);
     });
-    Deserializer unpackArrayable = (arrayable, thread) -> {
+    Dereferencer unpackArrayable = (arrayable, thread) -> {
       Value asArray = invoke(arrayable, thread, "toArray", null);
-      return deserializeReference(thread, asArray);
+      return dereferenceValue(thread, asArray);
     };
-    deserializers.put(HashSet.class.getName(), unpackArrayable);
-    deserializers.put(LinkedList.class.getName(), unpackArrayable);
+    dereferencerMap.put(HashSet.class.getName(), unpackArrayable);
+    dereferencerMap.put(LinkedList.class.getName(), unpackArrayable);
   }
 
   @Override

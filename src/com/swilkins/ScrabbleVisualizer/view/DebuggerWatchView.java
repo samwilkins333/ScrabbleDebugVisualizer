@@ -19,7 +19,7 @@ public abstract class DebuggerWatchView extends JPanel {
 
   public abstract void initialize(Dimension initialDimension);
 
-  protected abstract void onVariablesDeserialized(Map<String, Object> deserializedVariables);
+  protected abstract void onVariablesDereferenced(Map<String, Object> dereferencedVariables);
 
   public abstract BiConsumer<Dimension, Integer> onSplitResize();
 
@@ -29,14 +29,14 @@ public abstract class DebuggerWatchView extends JPanel {
 
   protected abstract void registerUpdaters();
 
-  public void updateFrom(DebugClassLocation location, Map<String, Object> deserializedVariables) {
-    onVariablesDeserialized(deserializedVariables);
+  public void updateFrom(DebugClassLocation location, Map<String, Object> dereferencedVariables) {
+    onVariablesDereferenced(dereferencedVariables);
 
     for (Map.Entry<String[], BiConsumer<DebugClassLocation, Iterator<Object>>> entry : updaters.entrySet()) {
       String[] dependencies = entry.getKey();
       List<Object> args = new ArrayList<>();
       for (String dependencyName : entry.getKey()) {
-        Object arg = deserializedVariables.get(dependencyName);
+        Object arg = dereferencedVariables.get(dependencyName);
         if (arg != null) {
           args.add(arg);
         }

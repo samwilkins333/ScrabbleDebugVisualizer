@@ -37,9 +37,9 @@ public abstract class Debugger extends JFrame {
   private final Class<?> virtualMachineTargetClass;
   private final Set<BiConsumer<Dimension, Integer>> onSplitResizeListeners = new HashSet<>();
 
-  protected final Map<String, Deserializer> deserializers = new HashMap<>();
-  private final Deserializer toString = (object, thread) ->
-          deserializeReference(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
+  protected final Map<String, Dereferencer> dereferencerMap = new HashMap<>();
+  private final Dereferencer toString = (object, thread) ->
+          dereferenceValue(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
 
   private boolean started;
 
@@ -81,14 +81,14 @@ public abstract class Debugger extends JFrame {
       getContentPane().add(debuggerSourceView);
     }
 
-    configureDeserializers();
+    configureDereferencers();
   }
 
   protected abstract void configureDebuggerModel() throws IOException, ClassNotFoundException;
 
   protected abstract void configureDebuggerView();
 
-  protected abstract void configureDeserializers();
+  protected abstract void configureDereferencers();
 
   protected abstract void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
 
@@ -99,7 +99,7 @@ public abstract class Debugger extends JFrame {
       ThreadReference thread = locatableEvent.thread();
       if (location != null && thread.isSuspended()) {
         debuggerSourceView.setSelectedLocation(location);
-        onVirtualMachineSuspension(location, deserializeVariables(thread));
+        onVirtualMachineSuspension(location, dereferenceVariables(thread));
         debuggerSourceView.setAllControlButtonsEnabled(true);
         debuggerModel.awaitEventProcessingContinuation(thread);
         onVirtualMachineContinuation();
@@ -108,10 +108,10 @@ public abstract class Debugger extends JFrame {
     }
   }
 
-  protected void onVirtualMachineSuspension(DebugClassLocation location, Map<String, Object> deserializedVariables) {
+  protected void onVirtualMachineSuspension(DebugClassLocation location, Map<String, Object> dereferencedVariables) {
     if (debuggerWatchView != null) {
       debuggerWatchView.setEnabled(true);
-      debuggerWatchView.updateFrom(location, deserializedVariables);
+      debuggerWatchView.updateFrom(location, dereferencedVariables);
     }
   }
 
@@ -153,7 +153,7 @@ public abstract class Debugger extends JFrame {
               debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
             } else if (event instanceof ExceptionEvent) {
               ExceptionEvent exceptionEvent = (ExceptionEvent) event;
-              Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
+              Object exception = dereferenceValue(exceptionEvent.thread(), exceptionEvent.exception());
               debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
             }
             onVirtualMachineEvent(event);
@@ -212,21 +212,21 @@ public abstract class Debugger extends JFrame {
     return defaultControlActionListeners;
   }
 
-  private Deserializer getDeserializerFor(ObjectReference objectReference) {
-    Deserializer deserializer = toString;
+  private Dereferencer getDereferencerFor(ObjectReference objectReference) {
+    Dereferencer dereferencer = toString;
     try {
       Class<?> clazz = Class.forName(objectReference.referenceType().name());
       while (clazz != Object.class) {
-        Deserializer existing = deserializers.get(clazz.getName());
+        Dereferencer existing = dereferencerMap.get(clazz.getName());
         if (existing != null) {
-          deserializer = existing;
+          dereferencer = existing;
           break;
         }
         clazz = clazz.getSuperclass();
       }
     } catch (ClassNotFoundException ignored) {
     }
-    return deserializer;
+    return dereferencer;
   }
 
   protected Value invoke(ObjectReference object, ThreadReference thread, String toInvokeName, String signature) {
@@ -245,19 +245,19 @@ public abstract class Debugger extends JFrame {
     }
   }
 
-  private Map<String, Object> deserializeVariables(ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
+  private Map<String, Object> dereferenceVariables(ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
     StackFrame frame = thread.frame(0);
-    Map<String, Object> deserializedVariables = new HashMap<>();
+    Map<String, Object> dereferencedVariables = new HashMap<>();
     Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
     debuggerModel.overrideAllEventRequests();
     for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
-      deserializedVariables.put(entry.getKey().name(), deserializeReference(thread, entry.getValue()));
+      dereferencedVariables.put(entry.getKey().name(), dereferenceValue(thread, entry.getValue()));
     }
     debuggerModel.restoreAllEventRequests();
-    return deserializedVariables;
+    return dereferencedVariables;
   }
 
-  protected Object deserializeReference(ThreadReference thread, Value value) {
+  protected Object dereferenceValue(ThreadReference thread, Value value) {
     if (value instanceof ObjectReference) {
       ((ObjectReference) value).disableCollection();
     }
@@ -265,14 +265,14 @@ public abstract class Debugger extends JFrame {
       ArrayReference arrayReference = (ArrayReference) value;
       Object[] collector = new Object[arrayReference.length()];
       for (int i = 0; i < arrayReference.length(); i++) {
-        collector[i] = (deserializeReference(thread, arrayReference.getValue(i)));
+        collector[i] = (dereferenceValue(thread, arrayReference.getValue(i)));
       }
       return collector;
     } else if (value instanceof StringReference) {
       return ((StringReference) value).value();
     } else if (value instanceof ObjectReference) {
       ObjectReference objectReference = (ObjectReference) value;
-      return getDeserializerFor(objectReference).deserialize(objectReference, thread);
+      return getDereferencerFor(objectReference).dereference(objectReference, thread);
     } else if (value instanceof PrimitiveValue) {
       PrimitiveValue primitiveValue = (PrimitiveValue) value;
       String subType = value.type().name();
