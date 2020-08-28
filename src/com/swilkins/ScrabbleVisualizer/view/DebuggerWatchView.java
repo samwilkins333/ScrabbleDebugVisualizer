@@ -1,6 +1,6 @@
 package com.swilkins.ScrabbleVisualizer.view;
 
-import com.sun.jdi.Location;
+import com.swilkins.ScrabbleVisualizer.debug.DebugClassLocation;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,7 +10,7 @@ import java.util.function.BiConsumer;
 
 public abstract class DebuggerWatchView extends JPanel {
 
-  private final Map<String[], BiConsumer<Location, Iterator<Object>>> updaters = new LinkedHashMap<>();
+  private final Map<String[], BiConsumer<DebugClassLocation, Iterator<Object>>> updaters = new LinkedHashMap<>();
 
   public DebuggerWatchView() {
     super();
@@ -23,16 +23,16 @@ public abstract class DebuggerWatchView extends JPanel {
 
   public abstract BiConsumer<Dimension, Integer> onSplitResize();
 
-  protected void registerUpdater(BiConsumer<Location, Iterator<Object>> updater, String... variableDependencyNames) {
+  protected void registerUpdater(BiConsumer<DebugClassLocation, Iterator<Object>> updater, String... variableDependencyNames) {
     updaters.put(variableDependencyNames, updater);
   }
 
   protected abstract void registerUpdaters();
 
-  public void updateFrom(Location location, Map<String, Object> deserializedVariables) {
+  public void updateFrom(DebugClassLocation location, Map<String, Object> deserializedVariables) {
     onVariablesDeserialized(deserializedVariables);
 
-    for (Map.Entry<String[], BiConsumer<Location, Iterator<Object>>> entry : updaters.entrySet()) {
+    for (Map.Entry<String[], BiConsumer<DebugClassLocation, Iterator<Object>>> entry : updaters.entrySet()) {
       String[] dependencies = entry.getKey();
       List<Object> args = new ArrayList<>();
       for (String dependencyName : entry.getKey()) {

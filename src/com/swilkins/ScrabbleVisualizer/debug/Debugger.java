@@ -97,8 +97,9 @@ public abstract class Debugger extends JFrame {
     if (event instanceof LocatableEvent) {
       LocatableEvent locatableEvent = (LocatableEvent) event;
       DebugClassLocation location = debuggerModel.toDebugClassLocation(locatableEvent.location());
-      if (location != null && !(event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation()))) {
-        trySuspend(locatableEvent);
+      ThreadReference thread = locatableEvent.thread();
+      if (location != null) {
+        trySuspend(location, thread);
       }
     }
     virtualMachine.resume();
@@ -106,7 +107,7 @@ public abstract class Debugger extends JFrame {
 
   protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
 
-  protected void onVirtualMachineSuspension(Location location, Map<String, Object> deserializedVariables) {
+  protected void onVirtualMachineSuspension(DebugClassLocation location, Map<String, Object> deserializedVariables) {
     if (debuggerWatchView != null) {
       debuggerWatchView.setEnabled(true);
       debuggerWatchView.updateFrom(location, deserializedVariables);
@@ -209,23 +210,17 @@ public abstract class Debugger extends JFrame {
     return defaultControlActionListeners;
   }
 
-  protected void trySuspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
-    Location location = event.location();
-    DebugClassLocation updatedLocation = debuggerModel.toDebugClassLocation(location);
-    if (updatedLocation == null) {
-      return;
-    }
-
-    DebugClassLocation previousLocation = debuggerSourceView.setSelectedLocation(updatedLocation);
+  protected void trySuspend(DebugClassLocation location, ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
+    DebugClassLocation previousLocation = debuggerSourceView.setSelectedLocation(location);
 
     Integer activeStepRequestDepth = debuggerModel.getActiveStepRequestDepth();
-    if (activeStepRequestDepth != null && updatedLocation.equals(previousLocation)) {
+    if (activeStepRequestDepth != null && location.equals(previousLocation)) {
       if (activeStepRequestDepth == StepRequest.STEP_INTO || activeStepRequestDepth == StepRequest.STEP_OUT) {
         return;
       }
     }
 
-    onVirtualMachineSuspension(location, deserializeVariables(event.thread()));
+    onVirtualMachineSuspension(location, deserializeVariables(thread));
     debuggerSourceView.setAllControlButtonsEnabled(true);
     debuggerModel.awaitEventProcessingContinuation();
     debuggerSourceView.setAllControlButtonsEnabled(false);

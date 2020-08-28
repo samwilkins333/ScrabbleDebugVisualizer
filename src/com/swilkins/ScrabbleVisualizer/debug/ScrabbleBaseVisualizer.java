@@ -189,7 +189,7 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
         currentPlacements.add(components);
         JLabel cell = cells[(int) components[1]][(int) components[0]];
         cell.setText(tileRepresentation((Object[]) components[2]));
-        if (loc.lineNumber() == 203) {
+        if (loc.getLineNumber() == 203) {
           cell.setBackground(Color.GREEN);
           if (cell.equals(currentCell)) {
             cell.setIcon(null);
