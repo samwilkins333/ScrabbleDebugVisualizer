@@ -29,8 +29,8 @@ public class ScrabbleBaseDebugger extends Debugger {
 
   public static final Dimension ICON_DIMENSION = new Dimension(12, 12);
 
-  public ScrabbleBaseDebugger(DebuggerWatchView debuggerWatchView) throws Exception {
-    super(GeneratorTarget.class, debuggerWatchView);
+  public ScrabbleBaseDebugger() throws Exception {
+    super(GeneratorTarget.class, new ScrabbleBaseVisualizer());
   }
 
   @Override
