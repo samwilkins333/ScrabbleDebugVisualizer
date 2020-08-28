@@ -6,6 +6,7 @@ import com.sun.jdi.ReferenceType;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.request.*;
+import com.swilkins.ScrabbleVisualizer.utility.Utilities;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -26,6 +27,7 @@ public class DebuggerModel {
   private final Map<Class<?>, DebugClassSource> debugClassSources = new LinkedHashMap<>();
   private final Map<Class<?>, DebugClass> debugClasses = new LinkedHashMap<>();
   private static final String JAVA_SUFFIX = ".java";
+  private String globalClassFilter = null;
   private EventRequestManager eventRequestManager;
   private final Map<EventRequest, Boolean> eventRequestStateMap = new HashMap<>();
 
@@ -128,10 +130,17 @@ public class DebuggerModel {
   }
 
   public void submitDebugClassSources() {
+    List<String> classNames = new ArrayList<>(debugClassSources.size());
     for (Class<?> clazz : debugClassSources.keySet()) {
       ClassPrepareRequest request = eventRequestManager.createClassPrepareRequest();
-      request.addClassFilter(clazz.getName());
+      String className = clazz.getName();
+      request.addClassFilter(className);
+      classNames.add(className);
       setEventRequestEnabled(request, true);
+    }
+    String globalClassFilter = Utilities.longestCommonPrefix(classNames);
+    if (!globalClassFilter.isEmpty()) {
+      this.globalClassFilter = globalClassFilter + "*";
     }
   }
 
@@ -204,6 +213,9 @@ public class DebuggerModel {
         if (requestedStepRequest == null) {
           synchronized (threadReferenceControl) {
             requestedStepRequest = eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
+            if (globalClassFilter != null) {
+              requestedStepRequest.addClassFilter(globalClassFilter);
+            }
           }
           stepRequestMap.put(stepRequestDepth, requestedStepRequest);
         }

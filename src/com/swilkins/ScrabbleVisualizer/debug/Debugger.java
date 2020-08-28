@@ -98,7 +98,7 @@ public abstract class Debugger extends JFrame {
       LocatableEvent locatableEvent = (LocatableEvent) event;
       DebugClassLocation location = debuggerModel.toDebugClassLocation(locatableEvent.location());
       ThreadReference thread = locatableEvent.thread();
-      if (location != null) {
+      if (location != null && !(event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation())) && thread.isSuspended()) {
         trySuspend(location, thread);
       }
     }
