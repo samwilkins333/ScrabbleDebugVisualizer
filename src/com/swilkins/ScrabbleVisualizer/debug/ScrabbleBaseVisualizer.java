@@ -238,11 +238,4 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
     }
   }
 
-  @Override
-  public void setEnabled(boolean enabled) {
-    super.setEnabled(enabled);
-    boardView.setEnabled(enabled);
-    tabbedPane.setEnabled(enabled);
-  }
-
 }

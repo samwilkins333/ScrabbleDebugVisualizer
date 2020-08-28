@@ -47,6 +47,14 @@ public abstract class DebuggerWatchView extends JPanel {
     }
   }
 
+  @Override
+  public void setEnabled(boolean enabled) {
+    super.setEnabled(enabled);
+    for (Component component : getComponents()) {
+      component.setEnabled(enabled);
+    }
+  }
+
   public abstract void clean();
 
 }
