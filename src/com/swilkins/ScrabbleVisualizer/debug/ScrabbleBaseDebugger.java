@@ -11,7 +11,6 @@ import com.swilkins.ScrabbleBase.Generation.CrossedTilePlacement;
 import com.swilkins.ScrabbleBase.Generation.Direction;
 import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
-import com.swilkins.ScrabbleVisualizer.view.DebuggerWatchView;
 
 import javax.swing.*;
 import java.awt.*;

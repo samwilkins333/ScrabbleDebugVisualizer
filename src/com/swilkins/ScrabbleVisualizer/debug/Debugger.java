@@ -81,7 +81,6 @@ public abstract class Debugger extends JFrame {
       getContentPane().add(debuggerSourceView);
     }
 
-
     configureDeserializers();
   }
 
@@ -99,7 +98,12 @@ public abstract class Debugger extends JFrame {
       DebugClassLocation location = debuggerModel.toDebugClassLocation(locatableEvent.location());
       ThreadReference thread = locatableEvent.thread();
       if (location != null && thread.isSuspended()) {
-        trySuspend(location, thread);
+        debuggerSourceView.setSelectedLocation(location);
+        onVirtualMachineSuspension(location, deserializeVariables(thread));
+        debuggerSourceView.setAllControlButtonsEnabled(true);
+        debuggerModel.awaitEventProcessingContinuation(thread);
+        onVirtualMachineContinuation();
+        debuggerSourceView.setAllControlButtonsEnabled(false);
       }
     }
   }
@@ -127,46 +131,45 @@ public abstract class Debugger extends JFrame {
   }
 
   private void start() {
-    if (!started) {
-      LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
-      Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-      arguments.get("main").setValue(virtualMachineTargetClass.getName());
+    started = true;
 
-      configureVirtualMachineLaunch(arguments);
+    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
+    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
+    arguments.get("main").setValue(virtualMachineTargetClass.getName());
 
-      started = true;
-      new Thread(() -> {
+    configureVirtualMachineLaunch(arguments);
+
+    new Thread(() -> {
+      try {
+        virtualMachine = launchingConnector.launch(arguments);
+        debuggerModel.setEventRequestManager(virtualMachine.eventRequestManager());
+        debuggerModel.submitDebugClassSources();
+        debuggerModel.enableExceptionReporting(true, true);
+
         EventSet eventSet;
-        try {
-          virtualMachine = launchingConnector.launch(arguments);
-          debuggerModel.setEventRequestManager(virtualMachine.eventRequestManager());
-          debuggerModel.submitDebugClassSources();
-          debuggerModel.enableExceptionReporting(true, true);
-
-          while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
-            for (Event event : eventSet) {
-              if (event instanceof ClassPrepareEvent) {
-                debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
-              } else if (event instanceof ExceptionEvent) {
-                ExceptionEvent exceptionEvent = (ExceptionEvent) event;
-                Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
-                debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
-              }
-              onVirtualMachineEvent(event);
-              virtualMachine.resume();
+        while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
+          for (Event event : eventSet) {
+            if (event instanceof ClassPrepareEvent) {
+              debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
+            } else if (event instanceof ExceptionEvent) {
+              ExceptionEvent exceptionEvent = (ExceptionEvent) event;
+              Object exception = deserializeReference(exceptionEvent.thread(), exceptionEvent.exception());
+              debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
             }
+            onVirtualMachineEvent(event);
+            virtualMachine.resume();
           }
-        } catch (VMDisconnectedException e) {
-          Process process = virtualMachine.process();
-          String virtualMachineOut = inputStreamToString(process.getInputStream());
-          String virtualMachineError = inputStreamToString(process.getErrorStream());
-          onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
-          dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
-        } catch (Exception e) {
-          e.printStackTrace();
         }
-      }).start();
-    }
+      } catch (VMDisconnectedException e) {
+        Process process = virtualMachine.process();
+        String virtualMachineOut = inputStreamToString(process.getInputStream());
+        String virtualMachineError = inputStreamToString(process.getErrorStream());
+        onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
+        dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }).start();
   }
 
   private Map<DebuggerControl, ActionListener> getDefaultControlActionListeners() {
@@ -209,27 +212,10 @@ public abstract class Debugger extends JFrame {
     return defaultControlActionListeners;
   }
 
-  protected void trySuspend(DebugClassLocation location, ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
-    DebugClassLocation previousLocation = debuggerSourceView.setSelectedLocation(location);
-
-    Integer activeStepRequestDepth = debuggerModel.getActiveStepRequestDepth();
-    if (activeStepRequestDepth != null && location.equals(previousLocation)) {
-      if (activeStepRequestDepth == StepRequest.STEP_INTO || activeStepRequestDepth == StepRequest.STEP_OUT) {
-        return;
-      }
-    }
-
-    onVirtualMachineSuspension(location, deserializeVariables(thread));
-    debuggerSourceView.setAllControlButtonsEnabled(true);
-    debuggerModel.awaitEventProcessingContinuation(thread);
-    debuggerSourceView.setAllControlButtonsEnabled(false);
-    onVirtualMachineContinuation();
-  }
-
-  private Deserializer getDeserializerFor(ObjectReference object) {
+  private Deserializer getDeserializerFor(ObjectReference objectReference) {
     Deserializer deserializer = toString;
     try {
-      Class<?> clazz = Class.forName(object.referenceType().name());
+      Class<?> clazz = Class.forName(objectReference.referenceType().name());
       while (clazz != Object.class) {
         Deserializer existing = deserializers.get(clazz.getName());
         if (existing != null) {
@@ -285,8 +271,8 @@ public abstract class Debugger extends JFrame {
     } else if (value instanceof StringReference) {
       return ((StringReference) value).value();
     } else if (value instanceof ObjectReference) {
-      ObjectReference ref = (ObjectReference) value;
-      return getDeserializerFor(ref).deserialize(ref, thread);
+      ObjectReference objectReference = (ObjectReference) value;
+      return getDeserializerFor(objectReference).deserialize(objectReference, thread);
     } else if (value instanceof PrimitiveValue) {
       PrimitiveValue primitiveValue = (PrimitiveValue) value;
       String subType = value.type().name();

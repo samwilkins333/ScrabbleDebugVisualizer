@@ -1,7 +1,6 @@
 package com.swilkins.ScrabbleVisualizer.executable;
 
 import com.swilkins.ScrabbleVisualizer.debug.ScrabbleBaseDebugger;
-import com.swilkins.ScrabbleVisualizer.debug.ScrabbleBaseVisualizer;
 
 import java.awt.*;
 
