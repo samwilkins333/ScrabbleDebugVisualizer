@@ -105,8 +105,6 @@ public abstract class Debugger extends JFrame {
     virtualMachine.resume();
   }
 
-  protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
-
   protected void onVirtualMachineSuspension(DebugClassLocation location, Map<String, Object> deserializedVariables) {
     if (debuggerWatchView != null) {
       debuggerWatchView.setEnabled(true);
@@ -119,6 +117,10 @@ public abstract class Debugger extends JFrame {
       debuggerWatchView.setEnabled(false);
       debuggerWatchView.clean();
     }
+  }
+
+  protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
+    System.out.println(String.format("Output:\n%s\n\nError:\n%s", virtualMachineOut, virtualMachineError));
   }
 
   protected void addOnSplitResizeListener(BiConsumer<Dimension, Integer> onSplitResizeListener) {

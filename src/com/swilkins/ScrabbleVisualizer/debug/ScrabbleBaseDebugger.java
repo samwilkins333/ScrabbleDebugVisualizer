@@ -105,9 +105,4 @@ public class ScrabbleBaseDebugger extends Debugger {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
   }
 
-  @Override
-  protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
-    System.out.println(String.format("Output:\n%s\n\nError:\n%s", virtualMachineOut, virtualMachineError));
-  }
-
 }
