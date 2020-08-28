@@ -3,8 +3,6 @@ package com.swilkins.ScrabbleVisualizer.debug;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.Value;
 import com.sun.jdi.connect.Connector;
-import com.sun.jdi.event.Event;
-import com.sun.jdi.event.LocatableEvent;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Tile;
@@ -38,7 +36,7 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureDebuggerModel() throws IOException, ClassNotFoundException {
     debuggerModel.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(210);
+    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints();
     debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 17, 25) {
       @Override
       public String getContentsAsString() {
@@ -105,18 +103,6 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
-  }
-
-  @Override
-  protected void onVirtualMachineEvent(Event event) throws Exception {
-    if (event instanceof LocatableEvent) {
-      LocatableEvent locatableEvent = (LocatableEvent) event;
-      Class<?> clazz = toClass(locatableEvent.location());
-      if (clazz != null && debuggerModel.getDebugClassFor(clazz) != null) {
-        trySuspend(locatableEvent);
-      }
-    }
-    virtualMachine.resume();
   }
 
   @Override

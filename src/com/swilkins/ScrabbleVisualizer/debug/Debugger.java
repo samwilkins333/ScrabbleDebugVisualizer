@@ -66,17 +66,21 @@ public abstract class Debugger extends JFrame {
       this.debuggerWatchView.setPreferredSize(verticalScreenHalf);
       this.debuggerWatchView.initialize(verticalScreenHalf);
       addOnSplitResizeListener(this.debuggerWatchView.onSplitResize());
+
+      JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, debuggerSourceView, debuggerWatchView);
+      splitPane.setDividerLocation(verticalScreenHalf.height);
+      splitPane.addPropertyChangeListener(e -> {
+        if (e.getPropertyName().equals("dividerLocation")) {
+          int location = (int) e.getNewValue();
+          onSplitResizeListeners.forEach(listener -> listener.accept(screenDimension, location));
+        }
+      });
+
+      getContentPane().add(splitPane);
+    } else {
+      getContentPane().add(debuggerSourceView);
     }
 
-    JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, debuggerSourceView, debuggerWatchView);
-    splitPane.setDividerLocation(verticalScreenHalf.height);
-    splitPane.addPropertyChangeListener(e -> {
-      if (e.getPropertyName().equals("dividerLocation")) {
-        int location = (int) e.getNewValue();
-        onSplitResizeListeners.forEach(listener -> listener.accept(screenDimension, location));
-      }
-    });
-    getContentPane().add(splitPane);
 
     configureDeserializers();
   }
@@ -89,7 +93,16 @@ public abstract class Debugger extends JFrame {
 
   protected abstract void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
 
-  protected abstract void onVirtualMachineEvent(Event event) throws Exception;
+  protected void onVirtualMachineEvent(Event event) throws Exception {
+    if (event instanceof LocatableEvent) {
+      LocatableEvent locatableEvent = (LocatableEvent) event;
+      DebugClassLocation location = debuggerModel.toDebugClassLocation(locatableEvent.location());
+      if (location != null && !(event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation()))) {
+        trySuspend(locatableEvent);
+      }
+    }
+    virtualMachine.resume();
+  }
 
   protected abstract void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError);
 
@@ -198,14 +211,11 @@ public abstract class Debugger extends JFrame {
 
   protected void trySuspend(LocatableEvent event) throws AbsentInformationException, IncompatibleThreadStateException {
     Location location = event.location();
-    Class<?> clazz = toClass(location);
-
-    DebugClass debugClass = debuggerModel.getDebugClassFor(clazz);
-    if (debugClass == null) {
+    DebugClassLocation updatedLocation = debuggerModel.toDebugClassLocation(location);
+    if (updatedLocation == null) {
       return;
     }
 
-    DebugClassLocation updatedLocation = new DebugClassLocation(debugClass, location.lineNumber());
     DebugClassLocation previousLocation = debuggerSourceView.setSelectedLocation(updatedLocation);
 
     Integer activeStepRequestDepth = debuggerModel.getActiveStepRequestDepth();
@@ -220,17 +230,6 @@ public abstract class Debugger extends JFrame {
     debuggerModel.awaitEventProcessingContinuation();
     debuggerSourceView.setAllControlButtonsEnabled(false);
     onVirtualMachineContinuation();
-  }
-
-  protected Class<?> toClass(Location location) {
-    Class<?> result;
-    String className = location.toString().split(":")[0];
-    try {
-      result = Class.forName(className);
-    } catch (ClassNotFoundException e) {
-      result = null;
-    }
-    return result;
   }
 
   private Deserializer getDeserializerFor(ObjectReference object) {

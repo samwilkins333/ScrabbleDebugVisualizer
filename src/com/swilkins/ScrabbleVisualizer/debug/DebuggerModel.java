@@ -168,6 +168,20 @@ public class DebuggerModel {
     }
   }
 
+  public DebugClassLocation toDebugClassLocation(Location location) {
+    DebugClassLocation debugClassLocation = null;
+    String className = location.toString().split(":")[0];
+    try {
+      Class<?> clazz = Class.forName(className);
+      DebugClass debugClass = debugClasses.get(clazz);
+      if (debugClass != null) {
+        debugClassLocation = new DebugClassLocation(debugClass, location.lineNumber());
+      }
+    } catch (ClassNotFoundException ignored) {
+    }
+    return debugClassLocation;
+  }
+
   public DebugClassSource getDebugClassSourceFor(Class<?> clazz) {
     return debugClassSources.get(clazz);
   }

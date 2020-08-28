@@ -34,4 +34,11 @@ public class DebugClassLocation {
     return Objects.hash(debugClass, lineNumber);
   }
 
+  @Override
+  public String toString() {
+    return "DebugClassLocation{" + "debugClass=" + debugClass.getClazz().getName() +
+            ", lineNumber=" + lineNumber +
+            '}';
+  }
+
 }

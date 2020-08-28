@@ -24,6 +24,8 @@ public class DebuggerSourceView extends JPanel {
   private final Map<DebuggerControl, JButton> controlButtons = new LinkedHashMap<>();
 
   private DebugClassLocation selectedLocation;
+  private DebugClassLocation programmaticSelectedLocation;
+
   private boolean isCenteringPreservedOnClick = false;
 
   public DebuggerSourceView() {
@@ -111,6 +113,10 @@ public class DebuggerSourceView extends JPanel {
     return selectedLocation;
   }
 
+  public DebugClassLocation getProgrammaticSelectedLocation() {
+    return programmaticSelectedLocation;
+  }
+
   public DebugClassLocation setSelectedLocation(DebugClassLocation updatedLocation) {
     DebugClass updatedDebugClass = updatedLocation.getDebugClass();
     if (selectedLocation == null || updatedDebugClass != selectedLocation.getDebugClass()) {
@@ -126,7 +132,7 @@ public class DebuggerSourceView extends JPanel {
     }
 
     DebugClassLocation previousLocation = this.selectedLocation;
-    this.selectedLocation = updatedLocation;
+    this.selectedLocation = this.programmaticSelectedLocation = updatedLocation;
 
     repaint();
 
