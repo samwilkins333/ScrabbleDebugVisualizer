@@ -36,8 +36,8 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureDebuggerModel() throws IOException, ClassNotFoundException {
     debuggerModel.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints();
-    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 17, 25) {
+    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(203);
+    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 22, 25) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleBaseDebugger.class.getResourceAsStream("../executable/GeneratorTarget.java");

@@ -98,11 +98,10 @@ public abstract class Debugger extends JFrame {
       LocatableEvent locatableEvent = (LocatableEvent) event;
       DebugClassLocation location = debuggerModel.toDebugClassLocation(locatableEvent.location());
       ThreadReference thread = locatableEvent.thread();
-      if (location != null && !(event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation())) && thread.isSuspended()) {
+      if (location != null && thread.isSuspended()) {
         trySuspend(location, thread);
       }
     }
-    virtualMachine.resume();
   }
 
   protected void onVirtualMachineSuspension(DebugClassLocation location, Map<String, Object> deserializedVariables) {
@@ -146,9 +145,6 @@ public abstract class Debugger extends JFrame {
 
           while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
             for (Event event : eventSet) {
-              if (event instanceof LocatableEvent) {
-                debuggerModel.setThreadReference(((LocatableEvent) event).thread());
-              }
               if (event instanceof ClassPrepareEvent) {
                 debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
               } else if (event instanceof ExceptionEvent) {
@@ -157,6 +153,7 @@ public abstract class Debugger extends JFrame {
                 debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
               }
               onVirtualMachineEvent(event);
+              virtualMachine.resume();
             }
           }
         } catch (VMDisconnectedException e) {
@@ -224,7 +221,7 @@ public abstract class Debugger extends JFrame {
 
     onVirtualMachineSuspension(location, deserializeVariables(thread));
     debuggerSourceView.setAllControlButtonsEnabled(true);
-    debuggerModel.awaitEventProcessingContinuation();
+    debuggerModel.awaitEventProcessingContinuation(thread);
     debuggerSourceView.setAllControlButtonsEnabled(false);
     onVirtualMachineContinuation();
   }

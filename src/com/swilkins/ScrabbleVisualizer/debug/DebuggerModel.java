@@ -213,9 +213,9 @@ public class DebuggerModel {
         if (requestedStepRequest == null) {
           synchronized (threadReferenceControl) {
             requestedStepRequest = eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
-            if (globalClassFilter != null) {
-              requestedStepRequest.addClassFilter(globalClassFilter);
-            }
+          }
+          if (globalClassFilter != null) {
+            requestedStepRequest.addClassFilter(globalClassFilter);
           }
           stepRequestMap.put(stepRequestDepth, requestedStepRequest);
         }
@@ -237,15 +237,12 @@ public class DebuggerModel {
     }
   }
 
-  public void setThreadReference(ThreadReference threadReference) {
-    synchronized (threadReferenceControl) {
-      this.threadReference = threadReference;
-    }
-  }
-
-  public void awaitEventProcessingContinuation() {
+  public void awaitEventProcessingContinuation(ThreadReference threadReference) {
     synchronized (eventProcessingControl) {
       try {
+        synchronized (threadReferenceControl) {
+          this.threadReference = threadReference;
+        }
         eventProcessingControl.wait();
       } catch (InterruptedException e) {
         e.printStackTrace();
