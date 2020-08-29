@@ -92,20 +92,20 @@ public abstract class Debugger extends JFrame {
 
   protected abstract void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
 
-  protected void onVirtualMachineEvent(Event event) throws Exception {
-    if (event instanceof LocatableEvent) {
-      LocatableEvent locatableEvent = (LocatableEvent) event;
-      DebugClassLocation location = debuggerModel.toDebugClassLocation(locatableEvent.location());
-      ThreadReference thread = locatableEvent.thread();
-      System.out.println(locatableEvent + " " + thread.isSuspended() + " " + thread.frame(0).visibleVariables().size());
-      if (location != null && thread.isSuspended()) {
-        debuggerSourceView.setSelectedLocation(location);
-        onVirtualMachineSuspension(location, dereferenceVariables(thread));
-        debuggerSourceView.setAllControlButtonsEnabled(true);
-        debuggerModel.awaitEventProcessingContinuation(thread);
-        onVirtualMachineContinuation();
-        debuggerSourceView.setAllControlButtonsEnabled(false);
+  protected void onVirtualMachineLocatableEvent(LocatableEvent event) throws Exception {
+    DebugClassLocation location = debuggerModel.toDebugClassLocation(event.location());
+    if (location != null) {
+      if (event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation())) {
+        return;
       }
+      ThreadReference thread = event.thread();
+      debuggerSourceView.setSelectedLocation(location);
+      onVirtualMachineSuspension(location, dereferenceVariables(thread));
+      debuggerSourceView.setAllControlButtonsEnabled(true);
+      debuggerModel.awaitEventProcessingContinuation();
+      debuggerModel.respondToRequestedStepRequestDepth(thread);
+      onVirtualMachineContinuation();
+      debuggerSourceView.setAllControlButtonsEnabled(false);
     }
   }
 
@@ -156,10 +156,11 @@ public abstract class Debugger extends JFrame {
               ExceptionEvent exceptionEvent = (ExceptionEvent) event;
               Object exception = dereferenceValue(exceptionEvent.thread(), exceptionEvent.exception());
               debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
+            } else if (event instanceof LocatableEvent) {
+              onVirtualMachineLocatableEvent((LocatableEvent) event);
             }
-            onVirtualMachineEvent(event);
-            virtualMachine.resume();
           }
+          virtualMachine.resume();
         }
       } catch (VMDisconnectedException e) {
         Process process = virtualMachine.process();
@@ -180,20 +181,20 @@ public abstract class Debugger extends JFrame {
       if (!started) {
         start();
       } else {
-        debuggerModel.disableActiveStepRequest();
+        debuggerModel.setRequestedStepRequestDepth(null);
         debuggerModel.resumeEventProcessing();
       }
     });
     defaultControlActionListeners.put(STEP_OVER, e -> {
-      debuggerModel.setActiveStepRequestDepth(StepRequest.STEP_OVER);
+      debuggerModel.setRequestedStepRequestDepth(StepRequest.STEP_OVER);
       debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(STEP_INTO, e -> {
-      debuggerModel.setActiveStepRequestDepth(StepRequest.STEP_INTO);
+      debuggerModel.setRequestedStepRequestDepth(StepRequest.STEP_INTO);
       debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(STEP_OUT, e -> {
-      debuggerModel.setActiveStepRequestDepth(StepRequest.STEP_OUT);
+      debuggerModel.setRequestedStepRequestDepth(StepRequest.STEP_OUT);
       debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(TOGGLE_BREAKPOINT, e -> {

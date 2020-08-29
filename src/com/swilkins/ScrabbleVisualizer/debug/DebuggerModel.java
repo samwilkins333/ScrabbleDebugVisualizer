@@ -35,9 +35,9 @@ public class DebuggerModel {
   private final Object stepRequestControl = new Object();
   private final Object threadReferenceControl = new Object();
 
-  private ThreadReference threadReference;
-  private final Map<Integer, StepRequest> stepRequestMap = new HashMap<>(3);
   private Integer activeStepRequestDepth;
+  private Integer requestedStepRequestDepth;
+  private final Map<Integer, StepRequest> stepRequestMap = new HashMap<>(3);
 
   public void setEventRequestManager(EventRequestManager eventRequestManager) {
     this.eventRequestManager = eventRequestManager;
@@ -199,33 +199,34 @@ public class DebuggerModel {
     return debugClasses.get(clazz);
   }
 
-  public Integer getActiveStepRequestDepth() {
-    synchronized (stepRequestControl) {
-      return activeStepRequestDepth;
-    }
+  public void setRequestedStepRequestDepth(Integer requestedStepRequestDepth) {
+    this.requestedStepRequestDepth = requestedStepRequestDepth;
   }
 
-  public void setActiveStepRequestDepth(int stepRequestDepth) {
+  public void respondToRequestedStepRequestDepth(ThreadReference threadReference) {
     synchronized (stepRequestControl) {
-      if (activeStepRequestDepth == null || activeStepRequestDepth != stepRequestDepth) {
-        disableActiveStepRequest();
-        StepRequest requestedStepRequest = stepRequestMap.get(stepRequestDepth);
+      disableActiveStepRequest();
+      if (requestedStepRequestDepth == null) {
+        return;
+      }
+      if (activeStepRequestDepth == null || !activeStepRequestDepth.equals(requestedStepRequestDepth)) {
+        StepRequest requestedStepRequest = stepRequestMap.get(requestedStepRequestDepth);
         if (requestedStepRequest == null) {
           synchronized (threadReferenceControl) {
-            requestedStepRequest = eventRequestManager.createStepRequest(threadReference, STEP_LINE, stepRequestDepth);
+            requestedStepRequest = eventRequestManager.createStepRequest(threadReference, STEP_LINE, requestedStepRequestDepth);
           }
           if (globalClassFilter != null) {
             requestedStepRequest.addClassFilter(globalClassFilter);
           }
-          stepRequestMap.put(stepRequestDepth, requestedStepRequest);
+          stepRequestMap.put(requestedStepRequestDepth, requestedStepRequest);
         }
         setEventRequestEnabled(requestedStepRequest, true);
-        activeStepRequestDepth = stepRequestDepth;
+        activeStepRequestDepth = requestedStepRequestDepth;
       }
     }
   }
 
-  public void disableActiveStepRequest() {
+  private void disableActiveStepRequest() {
     synchronized (stepRequestControl) {
       if (activeStepRequestDepth != null) {
         StepRequest activeStepRequest = stepRequestMap.get(activeStepRequestDepth);
@@ -237,12 +238,9 @@ public class DebuggerModel {
     }
   }
 
-  public void awaitEventProcessingContinuation(ThreadReference threadReference) {
+  public void awaitEventProcessingContinuation() {
     synchronized (eventProcessingControl) {
       try {
-        synchronized (threadReferenceControl) {
-          this.threadReference = threadReference;
-        }
         eventProcessingControl.wait();
       } catch (InterruptedException e) {
         e.printStackTrace();
@@ -252,7 +250,7 @@ public class DebuggerModel {
 
   public void resumeEventProcessing() {
     synchronized (eventProcessingControl) {
-      eventProcessingControl.notifyAll();
+      eventProcessingControl.notify();
     }
   }
 
