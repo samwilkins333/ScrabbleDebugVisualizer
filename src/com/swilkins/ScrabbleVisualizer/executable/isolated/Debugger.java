@@ -4,12 +4,13 @@ import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.*;
+import com.sun.jdi.event.Event;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.StepRequest;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.EventQueue;
 import java.util.Map;
 
 public class Debugger {
@@ -17,21 +18,26 @@ public class Debugger {
   private static final Object lock = new Object();
 
   public static void main(String[] args) {
-    new Thread(childThread(Target.class.getName())).start();
+    EventQueue.invokeLater(() -> {
+      JButton controlButton;
 
-    BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-    String line;
-    try {
-      while ((line = reader.readLine()) != null) {
-        if (line.trim().equals("Continue")) {
-          synchronized (lock) {
-            lock.notifyAll();
-          }
+      controlButton = new JButton("Continue");
+      controlButton.addActionListener(e -> {
+        synchronized (lock) {
+          lock.notifyAll();
         }
-      }
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+      });
+
+      JFrame frame = new JFrame();
+      frame.setPreferredSize(new Dimension(300, 300));
+      frame.setSize(new Dimension(300, 300));
+      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+      frame.getContentPane().add(controlButton);
+      frame.setResizable(true);
+      frame.setVisible(true);
+    });
+
+    new Thread(childThread(Target.class.getName())).start();
   }
 
   private static Runnable childThread(String targetClassName) {
