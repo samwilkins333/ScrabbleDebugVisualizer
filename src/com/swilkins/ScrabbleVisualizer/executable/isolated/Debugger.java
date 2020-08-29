@@ -83,6 +83,8 @@ public class Debugger {
         classPrepareRequest.addClassFilter(targetClassName);
         classPrepareRequest.enable();
 
+        virtualMachine.eventRequestManager().createExceptionRequest(null, true, true).enable();
+
         EventSet eventSet;
         while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
