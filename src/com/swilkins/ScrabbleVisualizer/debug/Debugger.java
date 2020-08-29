@@ -216,7 +216,7 @@ public abstract class Debugger extends JFrame {
     Dereferencer dereferencer = toString;
     try {
       Class<?> clazz = Class.forName(objectReference.referenceType().name());
-      while (clazz != Object.class) {
+      while (clazz != null) {
         Dereferencer existing = dereferencerMap.get(clazz.getName());
         if (existing != null) {
           dereferencer = existing;
