@@ -3,7 +3,6 @@ package com.swilkins.ScrabbleVisualizer.debug;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.Value;
 import com.sun.jdi.connect.Connector;
-import com.sun.jdi.event.Event;
 import com.sun.jdi.event.LocatableEvent;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;

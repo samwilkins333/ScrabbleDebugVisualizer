@@ -1,7 +1,5 @@
 package com.swilkins.ScrabbleVisualizer.utility;
 
-import com.sun.jdi.event.Event;
-
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;

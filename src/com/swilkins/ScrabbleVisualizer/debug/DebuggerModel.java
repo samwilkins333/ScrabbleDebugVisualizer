@@ -264,7 +264,7 @@ public class DebuggerModel {
     eventRequestStateMap.put(eventRequest, enabled);
   }
 
-  public <T, R> void  deadlockSafeInvoke(Invokable toInvoke) {
+  public <T, R> void deadlockSafeInvoke(Invokable toInvoke) {
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(false);
     }
