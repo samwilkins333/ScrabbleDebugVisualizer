@@ -14,6 +14,7 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.util.List;
 import java.util.*;
 import java.util.function.BiConsumer;
 
@@ -39,7 +40,7 @@ public abstract class Debugger extends JFrame {
 
   protected final Map<String, Dereferencer> dereferencerMap = new HashMap<>();
   private final Dereferencer toString = (object, thread) ->
-          dereferenceValue(thread, invoke(object, thread, "toString", "()Ljava/lang/String;"));
+          dereferenceValue(thread, invoke(object, thread, "toString", "()Ljava/lang/String;", null));
 
   private boolean started;
 
@@ -92,10 +93,10 @@ public abstract class Debugger extends JFrame {
 
   protected abstract void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments);
 
-  protected void onVirtualMachineLocatableEvent(LocatableEvent event) throws Exception {
+  protected void onVirtualMachineLocatableEvent(LocatableEvent event, int eventSetSize) throws Exception {
     DebugClassLocation location = debuggerModel.toDebugClassLocation(event.location());
     if (location != null) {
-      if (event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation())) {
+      if (event instanceof BreakpointEvent && eventSetSize > 1) {
         return;
       }
       ThreadReference thread = event.thread();
@@ -124,10 +125,10 @@ public abstract class Debugger extends JFrame {
   }
 
   protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
-    if (!virtualMachineOut.isEmpty()) {
+    if (virtualMachineOut != null && !virtualMachineOut.isEmpty()) {
       System.out.println(virtualMachineOut);
     }
-    if (!virtualMachineError.isEmpty()) {
+    if (virtualMachineError != null && !virtualMachineError.isEmpty()) {
       System.out.println(virtualMachineError);
     }
   }
@@ -152,6 +153,8 @@ public abstract class Debugger extends JFrame {
         debuggerModel.submitDebugClassSources();
         debuggerModel.enableExceptionReporting(true, true);
 
+        debuggerSourceView.start();
+
         EventSet eventSet;
         while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
           for (Event event : eventSet) {
@@ -162,7 +165,7 @@ public abstract class Debugger extends JFrame {
               Object exception = dereferenceValue(exceptionEvent.thread(), exceptionEvent.exception());
               debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
             } else if (event instanceof LocatableEvent) {
-              onVirtualMachineLocatableEvent((LocatableEvent) event);
+              onVirtualMachineLocatableEvent((LocatableEvent) event, eventSet.size());
             }
           }
           virtualMachine.resume();
@@ -216,6 +219,7 @@ public abstract class Debugger extends JFrame {
         debuggerSourceView.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
     });
+    defaultControlActionListeners.put(RESET_SELECTION, e -> debuggerSourceView.resetSelectedLocation());
     return defaultControlActionListeners;
   }
 
@@ -236,7 +240,7 @@ public abstract class Debugger extends JFrame {
     return dereferencer;
   }
 
-  protected Value invoke(ObjectReference object, ThreadReference thread, String toInvokeName, String signature) {
+  protected Value invoke(ObjectReference object, ThreadReference thread, String toInvokeName, String signature, List<? extends Value> arguments) {
     try {
       Method toInvoke;
       ReferenceType referenceType = object.referenceType();
@@ -245,7 +249,10 @@ public abstract class Debugger extends JFrame {
       } else {
         toInvoke = referenceType.methodsByName(toInvokeName).get(0);
       }
-      return object.invokeMethod(thread, toInvoke, Collections.emptyList(), 0);
+      if (arguments == null) {
+        arguments = Collections.emptyList();
+      }
+      return object.invokeMethod(thread, toInvoke, arguments, 0);
     } catch (Exception e) {
       e.printStackTrace();
       return null;
@@ -256,11 +263,11 @@ public abstract class Debugger extends JFrame {
     StackFrame frame = thread.frame(0);
     Map<String, Object> dereferencedVariables = new HashMap<>();
     Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
-    debuggerModel.overrideAllEventRequests();
-    for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
-      dereferencedVariables.put(entry.getKey().name(), dereferenceValue(thread, entry.getValue()));
-    }
-    debuggerModel.restoreAllEventRequests();
+    debuggerModel.deadlockSafeInvoke(() -> {
+      for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
+        dereferencedVariables.put(entry.getKey().name(), dereferenceValue(thread, entry.getValue()));
+      }
+    });
     return dereferencedVariables;
   }
 
@@ -270,9 +277,10 @@ public abstract class Debugger extends JFrame {
     }
     if (value instanceof ArrayReference) {
       ArrayReference arrayReference = (ArrayReference) value;
-      Object[] collector = new Object[arrayReference.length()];
-      for (int i = 0; i < arrayReference.length(); i++) {
-        collector[i] = (dereferenceValue(thread, arrayReference.getValue(i)));
+      int length = arrayReference.length();
+      Object[] collector = new Object[length];
+      for (int i = 0; i < length; i++) {
+        collector[i] = dereferenceValue(thread, arrayReference.getValue(i));
       }
       return collector;
     } else if (value instanceof StringReference) {

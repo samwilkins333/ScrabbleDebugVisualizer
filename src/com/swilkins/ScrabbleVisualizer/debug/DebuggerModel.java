@@ -6,6 +6,7 @@ import com.sun.jdi.ReferenceType;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.request.*;
+import com.swilkins.ScrabbleVisualizer.debug.interfaces.Invokable;
 import com.swilkins.ScrabbleVisualizer.utility.Utilities;
 
 import java.io.File;
@@ -181,6 +182,10 @@ public class DebuggerModel {
     DebugClassLocation debugClassLocation = null;
     String className = location.toString().split(":")[0];
     try {
+      String[] classNameComponents = className.split("\\$");
+      if (classNameComponents.length > 1) {
+        className = classNameComponents[0];
+      }
       Class<?> clazz = Class.forName(className);
       DebugClass debugClass = debugClasses.get(clazz);
       if (debugClass != null) {
@@ -259,13 +264,11 @@ public class DebuggerModel {
     eventRequestStateMap.put(eventRequest, enabled);
   }
 
-  public void overrideAllEventRequests() {
+  public <T, R> void  deadlockSafeInvoke(Invokable toInvoke) {
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(false);
     }
-  }
-
-  public void restoreAllEventRequests() {
+    toInvoke.invoke();
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(eventRequestEntry.getValue());
     }

@@ -3,6 +3,8 @@ package com.swilkins.ScrabbleVisualizer.debug;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.Value;
 import com.sun.jdi.connect.Connector;
+import com.sun.jdi.event.Event;
+import com.sun.jdi.event.LocatableEvent;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Tile;
@@ -60,39 +62,39 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureDereferencers() {
     Dereferencer unpackTileWrapper = (tileWrapper, thread) -> {
-      Value tileReference = invoke(tileWrapper, thread, "getTile", null);
+      Value tileReference = invoke(tileWrapper, thread, "getTile", null, null);
       return dereferenceValue(thread, tileReference);
     };
     dereferencerMap.put(BoardSquare.class.getName(), unpackTileWrapper);
     dereferencerMap.put(Direction.class.getName(), (direction, thread) -> {
-      ObjectReference directionNameReference = (ObjectReference) invoke(direction, thread, "name", null);
-      return dereferenceValue(thread, invoke(directionNameReference, thread, "toString", null));
+      ObjectReference directionNameReference = (ObjectReference) invoke(direction, thread, "name", null, null);
+      return dereferenceValue(thread, invoke(directionNameReference, thread, "toString", null, null));
     });
     dereferencerMap.put(Tile.class.getName(), (tile, thread) -> {
-      Value letter = invoke(tile, thread, "getLetter", null);
-      Value proxy = invoke(tile, thread, "getLetterProxy", null);
+      Value letter = invoke(tile, thread, "getLetter", null, null);
+      Value proxy = invoke(tile, thread, "getLetterProxy", null, null);
       return new Object[]{dereferenceValue(thread, letter), dereferenceValue(thread, proxy)};
     });
     dereferencerMap.put(Character.class.getName(), (character, thread) -> {
-      Value value = invoke(character, thread, "charValue", null);
+      Value value = invoke(character, thread, "charValue", null, null);
       return dereferenceValue(thread, value);
     });
     dereferencerMap.put(Candidate.class.getName(), (candidate, thread) -> {
-      int score = (int) dereferenceValue(thread, invoke(candidate, thread, "getScore", null));
-      Value serialized = invoke(candidate, thread, "toString", null);
+      int score = (int) dereferenceValue(thread, invoke(candidate, thread, "getScore", null, null));
+      Value serialized = invoke(candidate, thread, "toString", null, null);
       return new Object[]{score, dereferenceValue(thread, serialized)};
     });
     dereferencerMap.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
-      int x = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getX", null));
-      int y = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getY", null));
+      int x = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getX", null, null));
+      int y = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getY", null, null));
       return new Object[]{x, y, unpackTileWrapper.dereference(tilePlacement, thread)};
     });
     dereferencerMap.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> {
-      Value tilePlacement = invoke(crossedTilePlacement, thread, "getRoot", null);
+      Value tilePlacement = invoke(crossedTilePlacement, thread, "getRoot", null, null);
       return dereferenceValue(thread, tilePlacement);
     });
     Dereferencer unpackArrayable = (arrayable, thread) -> {
-      Value asArray = invoke(arrayable, thread, "toArray", null);
+      Value asArray = invoke(arrayable, thread, "toArray", null, null);
       return dereferenceValue(thread, asArray);
     };
     dereferencerMap.put(HashSet.class.getName(), unpackArrayable);
@@ -102,6 +104,11 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
+  }
+
+  @Override
+  protected void onVirtualMachineLocatableEvent(LocatableEvent event, int eventSetSize) throws Exception {
+    super.onVirtualMachineLocatableEvent(event, eventSetSize);
   }
 
 }

@@ -6,7 +6,8 @@ public enum DebuggerControl {
   STEP_OVER("Step Over"),
   STEP_INTO("Step Into"),
   STEP_OUT("Step Out"),
-  TOGGLE_BREAKPOINT("Toggle Breakpoint");
+  TOGGLE_BREAKPOINT("Toggle Breakpoint"),
+  RESET_SELECTION("Reset Selection");
 
   private final String label;
 

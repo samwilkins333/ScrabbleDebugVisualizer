@@ -113,8 +113,8 @@ public class DebuggerSourceView extends JPanel {
     return selectedLocation;
   }
 
-  public DebugClassLocation getProgrammaticSelectedLocation() {
-    return programmaticSelectedLocation;
+  public void resetSelectedLocation() {
+    setSelectedLocation(programmaticSelectedLocation);
   }
 
   public DebugClassLocation setSelectedLocation(DebugClassLocation updatedLocation) {
@@ -172,10 +172,15 @@ public class DebuggerSourceView extends JPanel {
     super.repaint();
   }
 
+  public void start() {
+    debugClassTextView.start();
+  }
+
   public static class DebugClassTextView extends JTextArea {
     private final LineNumberView lineNumberView;
     private DebuggerViewOptions options = new DebuggerViewOptions();
     private final List<Rectangle2D> breakpointViews = new ArrayList<>();
+    private boolean started;
 
     public DebugClassTextView() {
       super();
@@ -191,6 +196,10 @@ public class DebuggerSourceView extends JPanel {
       setBackground(options.getBackgroundColor());
       lineNumberView.repaint();
       repaint();
+    }
+
+    public void start() {
+      started = true;
     }
 
     public void paintBreakpointLines(Set<Integer> breakpointLines) {
@@ -213,14 +222,16 @@ public class DebuggerSourceView extends JPanel {
     protected void paintComponent(Graphics g) {
       g.setColor(getBackground());
       g.fillRect(0, 0, getWidth(), getHeight());
-      Color breakpointColor = options.getBreakpointColor();
-      try {
-        for (Rectangle2D breakpointView : breakpointViews) {
-          paintRectangle(g, breakpointView, breakpointColor);
+      if (started) {
+        Color breakpointColor = options.getBreakpointColor();
+        try {
+          for (Rectangle2D breakpointView : breakpointViews) {
+            paintRectangle(g, breakpointView, breakpointColor);
+          }
+          paintRectangle(g, modelToView2D(getCaretPosition()), options.getSelectedLocationColor());
+        } catch (BadLocationException e) {
+          e.printStackTrace();
         }
-        paintRectangle(g, modelToView2D(getCaretPosition()), options.getSelectedLocationColor());
-      } catch (BadLocationException e) {
-        e.printStackTrace();
       }
       super.paintComponent(g);
     }
