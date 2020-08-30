@@ -40,6 +40,8 @@ public class DebuggerModel {
   private Integer requestedStepRequestDepth;
   private final Map<Integer, StepRequest> stepRequestMap = new HashMap<>(3);
 
+  private boolean deadlockSafeInvoke;
+
   public void setEventRequestManager(EventRequestManager eventRequestManager) {
     this.eventRequestManager = eventRequestManager;
   }
@@ -260,11 +262,14 @@ public class DebuggerModel {
   }
 
   public void setEventRequestEnabled(EventRequest eventRequest, boolean enabled) {
-    eventRequest.setEnabled(enabled);
-    eventRequestStateMap.put(eventRequest, enabled);
+    if (!deadlockSafeInvoke) {
+      eventRequest.setEnabled(enabled);
+      eventRequestStateMap.put(eventRequest, enabled);
+    }
   }
 
-  public <T, R> void deadlockSafeInvoke(Invokable toInvoke) {
+  public void deadlockSafeInvoke(Invokable toInvoke) {
+    deadlockSafeInvoke = true;
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(false);
     }
@@ -272,6 +277,7 @@ public class DebuggerModel {
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(eventRequestEntry.getValue());
     }
+    deadlockSafeInvoke = false;
   }
 
 }
