@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
 cd src;
-find . -name "*.java" | xargs javac -g -cp ".:../lib/scrabble-base-jar-with-dependencies.jar";
-java -cp ".:../lib/scrabble-base-jar-with-dependencies.jar" "com/swilkins/ScrabbleVisualizer/executable/$@";
+find . -name "*.java" | xargs javac -g -cp ".:$1";
+java -cp ".:$1" "com/swilkins/ScrabbleVisualizer/executable/$2";

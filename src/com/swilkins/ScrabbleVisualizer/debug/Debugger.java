@@ -124,7 +124,12 @@ public abstract class Debugger extends JFrame {
   }
 
   protected void onVirtualMachineTermination(String virtualMachineOut, String virtualMachineError) {
-    System.out.println(String.format("Output:\n%s\n\nError:\n%s", virtualMachineOut, virtualMachineError));
+    if (!virtualMachineOut.isEmpty()) {
+      System.out.println(virtualMachineOut);
+    }
+    if (!virtualMachineError.isEmpty()) {
+      System.out.println(virtualMachineError);
+    }
   }
 
   protected void addOnSplitResizeListener(BiConsumer<Dimension, Integer> onSplitResizeListener) {
