@@ -109,12 +109,12 @@ public class DebuggerSourceView extends JPanel {
     return controlButton;
   }
 
-  public DebugClassLocation getSelectedLocation() {
-    return selectedLocation;
+  public DebugClassLocation getProgrammaticSelectedLocation() {
+    return programmaticSelectedLocation;
   }
 
-  public void resetSelectedLocation() {
-    setSelectedLocation(programmaticSelectedLocation);
+  public DebugClassLocation getSelectedLocation() {
+    return selectedLocation;
   }
 
   public DebugClassLocation setSelectedLocation(DebugClassLocation updatedLocation) {

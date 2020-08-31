@@ -96,7 +96,7 @@ public abstract class Debugger extends JFrame {
   protected void onVirtualMachineLocatableEvent(LocatableEvent event, int eventSetSize) throws Exception {
     DebugClassLocation location = debuggerModel.toDebugClassLocation(event.location());
     if (location != null) {
-      if (event instanceof BreakpointEvent && eventSetSize > 1) {
+      if (event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation())) {
         return;
       }
       ThreadReference thread = event.thread();
@@ -222,7 +222,10 @@ public abstract class Debugger extends JFrame {
         debuggerSourceView.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
     });
-    defaultControlActionListeners.put(RESET_SELECTION, e -> debuggerSourceView.resetSelectedLocation());
+    defaultControlActionListeners.put(RESET_SELECTION, e -> {
+      DebugClassLocation location = debuggerSourceView.getProgrammaticSelectedLocation();
+      debuggerSourceView.setSelectedLocation(location);
+    });
     return defaultControlActionListeners;
   }
 
