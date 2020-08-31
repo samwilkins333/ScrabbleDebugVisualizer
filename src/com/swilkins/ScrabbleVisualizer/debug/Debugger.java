@@ -222,7 +222,7 @@ public abstract class Debugger extends JFrame {
         debuggerSourceView.reportException(ex.toString(), DebuggerExceptionType.DEBUGGER);
       }
     });
-    defaultControlActionListeners.put(RESET_SELECTION, e -> {
+    defaultControlActionListeners.put(RECENTER, e -> {
       DebugClassLocation location = debuggerSourceView.getProgrammaticSelectedLocation();
       debuggerSourceView.setSelectedLocation(location);
     });
