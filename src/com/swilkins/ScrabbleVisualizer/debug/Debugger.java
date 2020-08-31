@@ -95,19 +95,17 @@ public abstract class Debugger extends JFrame {
 
   protected void onVirtualMachineLocatableEvent(LocatableEvent event, int eventSetSize) throws Exception {
     DebugClassLocation location = debuggerModel.toDebugClassLocation(event.location());
-    if (location != null) {
-      if (event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation())) {
+    if (location == null || (event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation()))) {
         return;
-      }
-      ThreadReference thread = event.thread();
-      debuggerSourceView.setSelectedLocation(location);
-      onVirtualMachineSuspension(location, dereferenceVariables(thread));
-      debuggerSourceView.setAllControlButtonsEnabled(true);
-      debuggerModel.awaitEventProcessingContinuation();
-      debuggerModel.respondToRequestedStepRequestDepth(thread);
-      onVirtualMachineContinuation();
-      debuggerSourceView.setAllControlButtonsEnabled(false);
     }
+    ThreadReference thread = event.thread();
+    debuggerSourceView.setSelectedLocation(location);
+    onVirtualMachineSuspension(location, dereferenceVariables(thread));
+    debuggerSourceView.setAllControlButtonsEnabled(true);
+    debuggerModel.awaitEventProcessingContinuation();
+    debuggerModel.respondToRequestedStepRequestDepth(thread);
+    onVirtualMachineContinuation();
+    debuggerSourceView.setAllControlButtonsEnabled(false);
   }
 
   protected void onVirtualMachineSuspension(DebugClassLocation location, Map<String, Object> dereferencedVariables) {
