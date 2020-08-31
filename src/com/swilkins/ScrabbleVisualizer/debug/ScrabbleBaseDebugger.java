@@ -18,7 +18,8 @@ import java.awt.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.*;
+import java.util.AbstractCollection;
+import java.util.Map;
 
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;

@@ -96,7 +96,7 @@ public abstract class Debugger extends JFrame {
   protected void onVirtualMachineLocatableEvent(LocatableEvent event, int eventSetSize) throws Exception {
     DebugClassLocation location = debuggerModel.toDebugClassLocation(event.location());
     if (location == null || (event instanceof BreakpointEvent && location.equals(debuggerSourceView.getProgrammaticSelectedLocation()))) {
-        return;
+      return;
     }
     ThreadReference thread = event.thread();
     debuggerSourceView.setSelectedLocation(location);
