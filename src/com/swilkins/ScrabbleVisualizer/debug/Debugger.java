@@ -39,7 +39,7 @@ public abstract class Debugger extends JFrame {
   private final Class<?> virtualMachineTargetClass;
   private final Set<BiConsumer<Dimension, Integer>> onSplitResizeListeners = new HashSet<>();
 
-  protected final Map<String, Dereferencer> dereferencerMap = new HashMap<>();
+  protected final Map<Class<?>, Dereferencer> dereferencerMap = new HashMap<>();
   protected final Dereferencer toString = (object, thread) -> standardDereference(object, "toString", thread);
 
   private boolean started;
@@ -232,7 +232,7 @@ public abstract class Debugger extends JFrame {
     try {
       Class<?> clazz = Class.forName(objectReference.referenceType().name());
       while (clazz != null) {
-        Dereferencer existing = dereferencerMap.get(clazz.getName());
+        Dereferencer existing = dereferencerMap.get(clazz);
         if (existing != null) {
           dereferencer = existing;
           break;

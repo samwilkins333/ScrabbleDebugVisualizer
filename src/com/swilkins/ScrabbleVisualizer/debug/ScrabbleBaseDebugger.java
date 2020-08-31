@@ -3,6 +3,7 @@ package com.swilkins.ScrabbleVisualizer.debug;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.event.LocatableEvent;
+import com.swilkins.ScrabbleBase.Board.Location.Coordinates;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
 import com.swilkins.ScrabbleBase.Board.State.Tile;
@@ -17,9 +18,7 @@ import java.awt.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
@@ -35,8 +34,8 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureDebuggerModel() throws IOException, ClassNotFoundException {
     debuggerModel.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(203);
-    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 15, 17, 25) {
+    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(120);
+    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true) {
       @Override
       public String getContentsAsString() {
         InputStream debugClassStream = ScrabbleBaseDebugger.class.getResourceAsStream("../executable/GeneratorTarget.java");
@@ -59,30 +58,32 @@ public class ScrabbleBaseDebugger extends Debugger {
 
   @Override
   protected void configureDereferencers() {
-    Dereferencer toArray = (arrayable, thread) -> standardDereference(arrayable, "toArray", thread);
-    dereferencerMap.put(HashSet.class.getName(), toArray);
-    dereferencerMap.put(LinkedList.class.getName(), toArray);
+    dereferencerMap.put(AbstractCollection.class, (arrayable, thread) -> standardDereference(arrayable, "toArray", thread));
     Dereferencer fromTileContainer = (tileWrapper, thread) -> standardDereference(tileWrapper, "getTile", thread);
-    dereferencerMap.put(BoardSquare.class.getName(), fromTileContainer);
-    dereferencerMap.put(TilePlacement.class.getName(), (tilePlacement, thread) -> new Object[]{
+    dereferencerMap.put(BoardSquare.class, fromTileContainer);
+    dereferencerMap.put(TilePlacement.class, (tilePlacement, thread) -> new Object[]{
             standardDereference(tilePlacement, "getX", thread),
             standardDereference(tilePlacement, "getY", thread),
             fromTileContainer.dereference(tilePlacement, thread)
     });
-    dereferencerMap.put(Tile.class.getName(), (tile, thread) -> new Object[]{
+    dereferencerMap.put(Tile.class, (tile, thread) -> new Object[]{
             standardDereference(tile, "getLetter", thread),
             standardDereference(tile, "getLetterProxy", thread)
     });
-    dereferencerMap.put(Direction.class.getName(), (direction, thread) -> {
+    dereferencerMap.put(Direction.class, (direction, thread) -> {
       ObjectReference directionNameReference = (ObjectReference) invoke(direction, thread, "name", null, null);
       return toString.dereference(directionNameReference, thread);
     });
-    dereferencerMap.put(Character.class.getName(), (character, thread) -> standardDereference(character, "charValue", thread));
-    dereferencerMap.put(Candidate.class.getName(), (candidate, thread) -> new Object[]{
+    dereferencerMap.put(Character.class, (character, thread) -> standardDereference(character, "charValue", thread));
+    dereferencerMap.put(Candidate.class, (candidate, thread) -> new Object[]{
             standardDereference(candidate, "getScore", thread),
             toString.dereference(candidate, thread)
     });
-    dereferencerMap.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> standardDereference(crossedTilePlacement, "getRoot", thread));
+    dereferencerMap.put(Coordinates.class, (coordinates, thread) -> new Object[]{
+            standardDereference(coordinates, "getX", thread),
+            standardDereference(coordinates, "getY", thread)
+    });
+    dereferencerMap.put(CrossedTilePlacement.class, (crossedTilePlacement, thread) -> standardDereference(crossedTilePlacement, "getRoot", thread));
   }
 
   @Override

@@ -33,8 +33,6 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
   private final JTextArea rawWatchedName = new JTextArea();
   private final JTextArea rawWatchedValue = new JTextArea();
 
-  private final List<Object[]> currentPlacements = new ArrayList<>();
-
   private void createIcon(String name) {
     URL url = getClass().getResource(String.format("../resource/icons/%s.png", name));
     directionIcons.put(name, createImageIconFrom(url, ICON_DIMENSION));
@@ -50,6 +48,10 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
       display = String.valueOf(letter);
     }
     return display;
+  }
+
+  private JLabel cellRepresentation(Object[] coordinates) {
+    return cells[(int) coordinates[1]][(int) coordinates[0]];
   }
 
   @Override
@@ -183,11 +185,16 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
     }, "y", "x", "dir");
 
     registerUpdater((loc, args) -> {
+      for (Object coordinateWrapper : (Object[]) args.next()) {
+        cellRepresentation(((Object[]) coordinateWrapper)).setBackground(Color.CYAN);
+      }
+    }, "validHooks");
+
+    registerUpdater((loc, args) -> {
       Object[] placements = (Object[]) args.next();
       for (Object placement : placements) {
         Object[] components = (Object[]) placement;
-        currentPlacements.add(components);
-        JLabel cell = cells[(int) components[1]][(int) components[0]];
+        JLabel cell = cellRepresentation(components);
         cell.setText(tileRepresentation((Object[]) components[2]));
         if (loc.getLineNumber() == 203) {
           cell.setBackground(Color.GREEN);
@@ -222,14 +229,13 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
 
   @Override
   public void clean() {
-    if (currentCell != null) {
-      currentCell.setBackground(Color.white);
-      currentCell.setIcon(null);
-    }
-    for (Object[] placement : currentPlacements) {
-      JLabel cell = cells[(int) placement[1]][(int) placement[0]];
-      cell.setText("");
-      cell.setBackground(Color.WHITE);
+    for (int y = 0; y < STANDARD_BOARD_DIMENSIONS; y++) {
+      for (int x = 0; x < STANDARD_BOARD_DIMENSIONS; x++) {
+        JLabel cell = cells[y][x];
+        cell.setBackground(Color.WHITE);
+        cell.setIcon(null);
+        cell.setText(null);
+      }
     }
     rawWatchedName.setText("");
     rawWatchedValue.setText("");
