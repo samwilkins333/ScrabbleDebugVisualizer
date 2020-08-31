@@ -268,7 +268,7 @@ public class DebuggerModel {
     }
   }
 
-  public void deadlockSafeInvoke(Invokable toInvoke) {
+  public void deadlockSafeInvoke(Invokable toInvoke) throws Exception {
     deadlockSafeInvoke = true;
     for (Map.Entry<EventRequest, Boolean> eventRequestEntry : eventRequestStateMap.entrySet()) {
       eventRequestEntry.getKey().setEnabled(false);

@@ -1,7 +1,6 @@
 package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.ObjectReference;
-import com.sun.jdi.Value;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.event.LocatableEvent;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
@@ -60,44 +59,30 @@ public class ScrabbleBaseDebugger extends Debugger {
 
   @Override
   protected void configureDereferencers() {
-    Dereferencer unpackTileWrapper = (tileWrapper, thread) -> {
-      Value tileReference = invoke(tileWrapper, thread, "getTile", null, null);
-      return dereferenceValue(thread, tileReference);
-    };
-    dereferencerMap.put(BoardSquare.class.getName(), unpackTileWrapper);
+    Dereferencer toArray = (arrayable, thread) -> standardDereference(arrayable, "toArray", thread);
+    dereferencerMap.put(HashSet.class.getName(), toArray);
+    dereferencerMap.put(LinkedList.class.getName(), toArray);
+    Dereferencer fromTileContainer = (tileWrapper, thread) -> standardDereference(tileWrapper, "getTile", thread);
+    dereferencerMap.put(BoardSquare.class.getName(), fromTileContainer);
+    dereferencerMap.put(TilePlacement.class.getName(), (tilePlacement, thread) -> new Object[]{
+            standardDereference(tilePlacement, "getX", thread),
+            standardDereference(tilePlacement, "getY", thread),
+            fromTileContainer.dereference(tilePlacement, thread)
+    });
+    dereferencerMap.put(Tile.class.getName(), (tile, thread) -> new Object[]{
+            standardDereference(tile, "getLetter", thread),
+            standardDereference(tile, "getLetterProxy", thread)
+    });
     dereferencerMap.put(Direction.class.getName(), (direction, thread) -> {
       ObjectReference directionNameReference = (ObjectReference) invoke(direction, thread, "name", null, null);
-      return dereferenceValue(thread, invoke(directionNameReference, thread, "toString", null, null));
+      return toString.dereference(directionNameReference, thread);
     });
-    dereferencerMap.put(Tile.class.getName(), (tile, thread) -> {
-      Value letter = invoke(tile, thread, "getLetter", null, null);
-      Value proxy = invoke(tile, thread, "getLetterProxy", null, null);
-      return new Object[]{dereferenceValue(thread, letter), dereferenceValue(thread, proxy)};
+    dereferencerMap.put(Character.class.getName(), (character, thread) -> standardDereference(character, "charValue", thread));
+    dereferencerMap.put(Candidate.class.getName(), (candidate, thread) -> new Object[]{
+            standardDereference(candidate, "getScore", thread),
+            toString.dereference(candidate, thread)
     });
-    dereferencerMap.put(Character.class.getName(), (character, thread) -> {
-      Value value = invoke(character, thread, "charValue", null, null);
-      return dereferenceValue(thread, value);
-    });
-    dereferencerMap.put(Candidate.class.getName(), (candidate, thread) -> {
-      int score = (int) dereferenceValue(thread, invoke(candidate, thread, "getScore", null, null));
-      Value serialized = invoke(candidate, thread, "toString", null, null);
-      return new Object[]{score, dereferenceValue(thread, serialized)};
-    });
-    dereferencerMap.put(TilePlacement.class.getName(), (tilePlacement, thread) -> {
-      int x = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getX", null, null));
-      int y = (int) dereferenceValue(thread, invoke(tilePlacement, thread, "getY", null, null));
-      return new Object[]{x, y, unpackTileWrapper.dereference(tilePlacement, thread)};
-    });
-    dereferencerMap.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> {
-      Value tilePlacement = invoke(crossedTilePlacement, thread, "getRoot", null, null);
-      return dereferenceValue(thread, tilePlacement);
-    });
-    Dereferencer unpackArrayable = (arrayable, thread) -> {
-      Value asArray = invoke(arrayable, thread, "toArray", null, null);
-      return dereferenceValue(thread, asArray);
-    };
-    dereferencerMap.put(HashSet.class.getName(), unpackArrayable);
-    dereferencerMap.put(LinkedList.class.getName(), unpackArrayable);
+    dereferencerMap.put(CrossedTilePlacement.class.getName(), (crossedTilePlacement, thread) -> standardDereference(crossedTilePlacement, "getRoot", thread));
   }
 
   @Override

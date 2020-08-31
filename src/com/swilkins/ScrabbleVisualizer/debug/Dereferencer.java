@@ -5,6 +5,6 @@ import com.sun.jdi.ThreadReference;
 
 public interface Dereferencer {
 
-  Object dereference(ObjectReference object, ThreadReference thread);
+  Object dereference(ObjectReference object, ThreadReference thread) throws NoSuchMethodException;
 
 }

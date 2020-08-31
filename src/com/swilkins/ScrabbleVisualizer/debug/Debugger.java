@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
@@ -39,8 +40,7 @@ public abstract class Debugger extends JFrame {
   private final Set<BiConsumer<Dimension, Integer>> onSplitResizeListeners = new HashSet<>();
 
   protected final Map<String, Dereferencer> dereferencerMap = new HashMap<>();
-  private final Dereferencer toString = (object, thread) ->
-          dereferenceValue(thread, invoke(object, thread, "toString", "()Ljava/lang/String;", null));
+  protected final Dereferencer toString = (object, thread) -> standardDereference(object, "toString", thread);
 
   private boolean started;
 
@@ -176,6 +176,9 @@ public abstract class Debugger extends JFrame {
         String virtualMachineError = inputStreamToString(process.getErrorStream());
         onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
         dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
+      } catch (NoSuchMethodException e) {
+        System.out.println(e.getMessage());
+        System.exit(1);
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -240,26 +243,34 @@ public abstract class Debugger extends JFrame {
     return dereferencer;
   }
 
-  protected Value invoke(ObjectReference object, ThreadReference thread, String toInvokeName, String signature, List<? extends Value> arguments) {
+  protected Value invoke(ObjectReference object, ThreadReference thread, String toInvokeName, String signature, List<? extends Value> arguments) throws NoSuchMethodException {
+    ReferenceType referenceType = object.referenceType();
+    List<Method> candidates;
+    if (signature != null) {
+      candidates = referenceType.methodsByName(toInvokeName, signature);
+    } else {
+      candidates = referenceType.methodsByName(toInvokeName);
+    }
+    Function<String, NoSuchMethodException> errorMessageBuilder = s -> new NoSuchMethodException(String.format(
+            "Illegal method invocation in dereferencer: [%s (%s) invoked on %s]: %s.",
+            toInvokeName, signature, referenceType.name(), s
+    ));
+    if (candidates.isEmpty()) {
+      throw errorMessageBuilder.apply("Method does not exist");
+    }
     try {
-      Method toInvoke;
-      ReferenceType referenceType = object.referenceType();
-      if (signature != null) {
-        toInvoke = referenceType.methodsByName(toInvokeName, signature).get(0);
-      } else {
-        toInvoke = referenceType.methodsByName(toInvokeName).get(0);
-      }
+      Method toInvoke = candidates.get(0);
       if (arguments == null) {
         arguments = Collections.emptyList();
       }
       return object.invokeMethod(thread, toInvoke, arguments, 0);
     } catch (Exception e) {
-      e.printStackTrace();
-      return null;
+      throw errorMessageBuilder.apply(e.getMessage());
     }
   }
 
-  private Map<String, Object> dereferenceVariables(ThreadReference thread) throws AbsentInformationException, IncompatibleThreadStateException {
+  private Map<String, Object> dereferenceVariables(ThreadReference thread)
+          throws Exception {
     StackFrame frame = thread.frame(0);
     Map<String, Object> dereferencedVariables = new HashMap<>();
     Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
@@ -271,7 +282,11 @@ public abstract class Debugger extends JFrame {
     return dereferencedVariables;
   }
 
-  protected Object dereferenceValue(ThreadReference thread, Value value) {
+  protected Object standardDereference(ObjectReference value, String toInvokeName, ThreadReference thread) throws NoSuchMethodException {
+    return dereferenceValue(thread, invoke(value, thread, toInvokeName, null, null));
+  }
+
+  protected Object dereferenceValue(ThreadReference thread, Value value) throws NoSuchMethodException {
     if (value instanceof ObjectReference) {
       ((ObjectReference) value).disableCollection();
     }
