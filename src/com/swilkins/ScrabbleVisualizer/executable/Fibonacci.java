@@ -1,5 +1,8 @@
 package com.swilkins.ScrabbleVisualizer.executable;
 
+import com.swilkins.ScrabbleVisualizer.debug.interfaces.DebugTarget;
+
+@DebugTarget
 public class Fibonacci {
 
   public static void main(String[] args) throws NumberFormatException {
