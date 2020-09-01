@@ -14,12 +14,15 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.net.URL;
 import java.util.List;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.*;
+import static com.swilkins.ScrabbleVisualizer.debug.ScrabbleBaseDebugger.ICON_DIMENSION;
+import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public abstract class Debugger extends JFrame {
@@ -37,16 +40,16 @@ public abstract class Debugger extends JFrame {
   protected DebuggerWatchView debuggerWatchView = null;
   protected final DebuggerModel debuggerModel;
   private final Class<?> virtualMachineTargetClass;
+  private final Object[] virtualMachineArguments;
   private final Set<BiConsumer<Dimension, Integer>> onSplitResizeListeners = new HashSet<>();
 
   protected final Map<Class<?>, Dereferencer> dereferencerMap = new HashMap<>();
   protected final Dereferencer toString = (object, thread) -> standardDereference(object, "toString", thread);
 
-  private boolean started;
-
-  public Debugger(Class<?> virtualMachineTargetClass, DebuggerWatchView debuggerWatchView) throws Exception {
+  public Debugger(Class<?> virtualMachineTargetClass, DebuggerWatchView debuggerWatchView, Object... virtualMachineArguments) throws Exception {
     super(virtualMachineTargetClass.getSimpleName());
     this.virtualMachineTargetClass = virtualMachineTargetClass;
+    this.virtualMachineArguments = virtualMachineArguments;
 
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setSize(screenDimension.width, screenDimension.height);
@@ -60,7 +63,7 @@ public abstract class Debugger extends JFrame {
     debuggerSourceView = new DebuggerSourceView();
     debuggerSourceView.setDefaultControlActionListeners(getDefaultControlActionListeners());
     debuggerSourceView.setPreferredSize(verticalScreenHalf);
-    configureDebuggerView();
+    configureDebuggerSourceView();
 
     if (debuggerWatchView != null) {
       this.debuggerWatchView = debuggerWatchView;
@@ -82,12 +85,74 @@ public abstract class Debugger extends JFrame {
       getContentPane().add(debuggerSourceView);
     }
 
+    dereferencerMap.put(AbstractCollection.class, (extendsAbstractCollection, thread) -> standardDereference(extendsAbstractCollection, "toArray", thread));
     configureDereferencers();
+
+    start();
+  }
+
+  private void start() {
+    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
+    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
+    StringBuilder main = new StringBuilder(virtualMachineTargetClass.getName());
+    for (Object virtualMachineArgument : virtualMachineArguments) {
+      main.append(" ").append(virtualMachineArgument);
+    }
+    arguments.get("main").setValue(main.toString());
+
+    configureVirtualMachineLaunch(arguments);
+
+    new Thread(() -> {
+      try {
+        virtualMachine = launchingConnector.launch(arguments);
+        debuggerModel.setEventRequestManager(virtualMachine.eventRequestManager());
+        debuggerModel.submitDebugClassSources();
+        debuggerModel.enableExceptionReporting(true, true);
+
+        debuggerSourceView.start();
+
+        EventSet eventSet;
+        while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
+          for (Event event : eventSet) {
+            if (event instanceof ClassPrepareEvent) {
+              debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
+            } else if (event instanceof ExceptionEvent) {
+              ExceptionEvent exceptionEvent = (ExceptionEvent) event;
+              Object exception = dereferenceValue(exceptionEvent.thread(), exceptionEvent.exception());
+              debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
+            } else if (event instanceof LocatableEvent) {
+              onVirtualMachineLocatableEvent((LocatableEvent) event, eventSet.size());
+            }
+          }
+          virtualMachine.resume();
+        }
+      } catch (VMDisconnectedException e) {
+        Process process = virtualMachine.process();
+        String virtualMachineOut = inputStreamToString(process.getInputStream());
+        String virtualMachineError = inputStreamToString(process.getErrorStream());
+        onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
+        dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
+      } catch (NoSuchMethodException e) {
+        System.out.println(e.getMessage());
+        System.exit(1);
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }).start();
   }
 
   protected abstract void configureDebuggerModel() throws IOException, ClassNotFoundException;
 
-  protected abstract void configureDebuggerView();
+  protected void configureDebuggerSourceView() {
+    debuggerSourceView.setOptions(null);
+
+    for (DebuggerControl control : DebuggerControl.values()) {
+      JButton controlButton = debuggerSourceView.addDefaultControlButton(control);
+      URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
+      controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
+      controlButton.setFocusPainted(false);
+    }
+  }
 
   protected abstract void configureDereferencers();
 
@@ -132,67 +197,16 @@ public abstract class Debugger extends JFrame {
   }
 
   protected void addOnSplitResizeListener(BiConsumer<Dimension, Integer> onSplitResizeListener) {
-    onSplitResizeListeners.add(onSplitResizeListener);
-  }
-
-  private void start() {
-    started = true;
-
-    LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
-    Map<String, Connector.Argument> arguments = launchingConnector.defaultArguments();
-    arguments.get("main").setValue(virtualMachineTargetClass.getName());
-
-    configureVirtualMachineLaunch(arguments);
-
-    new Thread(() -> {
-      try {
-        virtualMachine = launchingConnector.launch(arguments);
-        debuggerModel.setEventRequestManager(virtualMachine.eventRequestManager());
-        debuggerModel.submitDebugClassSources();
-        debuggerModel.enableExceptionReporting(true, true);
-
-        debuggerSourceView.start();
-
-        EventSet eventSet;
-        while ((eventSet = virtualMachine.eventQueue().remove()) != null) {
-          for (Event event : eventSet) {
-            if (event instanceof ClassPrepareEvent) {
-              debuggerModel.createDebugClassFrom((ClassPrepareEvent) event);
-            } else if (event instanceof ExceptionEvent) {
-              ExceptionEvent exceptionEvent = (ExceptionEvent) event;
-              Object exception = dereferenceValue(exceptionEvent.thread(), exceptionEvent.exception());
-              debuggerSourceView.reportException(exception.toString(), DebuggerExceptionType.VIRTUAL_MACHINE);
-            } else if (event instanceof LocatableEvent) {
-              onVirtualMachineLocatableEvent((LocatableEvent) event, eventSet.size());
-            }
-          }
-          virtualMachine.resume();
-        }
-      } catch (VMDisconnectedException e) {
-        Process process = virtualMachine.process();
-        String virtualMachineOut = inputStreamToString(process.getInputStream());
-        String virtualMachineError = inputStreamToString(process.getErrorStream());
-        onVirtualMachineTermination(virtualMachineOut, virtualMachineError);
-        dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
-      } catch (NoSuchMethodException e) {
-        System.out.println(e.getMessage());
-        System.exit(1);
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }).start();
+    if (onSplitResizeListener != null) {
+      onSplitResizeListeners.add(onSplitResizeListener);
+    }
   }
 
   private Map<DebuggerControl, ActionListener> getDefaultControlActionListeners() {
     Map<DebuggerControl, ActionListener> defaultControlActionListeners = new LinkedHashMap<>();
-    defaultControlActionListeners.put(RUN, e -> {
-      debuggerSourceView.setControlButtonEnabled(RUN, false);
-      if (!started) {
-        start();
-      } else {
-        debuggerModel.setRequestedStepRequestDepth(null);
-        debuggerModel.resumeEventProcessing();
-      }
+    defaultControlActionListeners.put(CONTINUE, e -> {
+      debuggerModel.setRequestedStepRequestDepth(null);
+      debuggerModel.resumeEventProcessing();
     });
     defaultControlActionListeners.put(STEP_OVER, e -> {
       debuggerModel.setRequestedStepRequestDepth(StepRequest.STEP_OVER);

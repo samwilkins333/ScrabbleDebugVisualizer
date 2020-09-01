@@ -30,8 +30,6 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
   private JPanel boardView;
 
   private final JTextArea candidates = new JTextArea();
-  private final JTextArea rawWatchedName = new JTextArea();
-  private final JTextArea rawWatchedValue = new JTextArea();
 
   private void createIcon(String name) {
     URL url = getClass().getResource(String.format("../resource/icons/%s.png", name));
@@ -133,23 +131,6 @@ public class ScrabbleBaseVisualizer extends DebuggerWatchView {
 
     tabbedPane.setEnabled(false);
     add(tabbedPane);
-  }
-
-  @Override
-  protected void onVariablesDereferenced(Map<String, Object> dereferencedVariables) {
-    StringBuilder rawNameBuilder = new StringBuilder();
-    StringBuilder rawValueBuilder = new StringBuilder();
-
-    List<Map.Entry<String, Object>> variables = new ArrayList<>(dereferencedVariables.entrySet());
-    variables.sort(Map.Entry.comparingByKey());
-
-    for (Map.Entry<String, Object> entry : variables) {
-      rawNameBuilder.append(entry.getKey()).append("\n");
-      rawValueBuilder.append(entry.getValue()).append("\n");
-    }
-
-    rawWatchedName.setText(rawNameBuilder.toString());
-    rawWatchedValue.setText(rawValueBuilder.toString());
   }
 
   @Override

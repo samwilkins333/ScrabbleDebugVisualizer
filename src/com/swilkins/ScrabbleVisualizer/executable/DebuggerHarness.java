@@ -7,7 +7,7 @@ public class DebuggerHarness {
   public static void main(String[] args) {
     EventQueue.invokeLater(() -> {
       try {
-        new FibonacciDebugger().setVisible(true);
+        new FibonacciDebugger(10).setVisible(true);
       } catch (Exception e) {
         e.printStackTrace();
       }

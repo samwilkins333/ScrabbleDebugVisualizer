@@ -2,7 +2,7 @@ package com.swilkins.ScrabbleVisualizer.debug;
 
 public enum DebuggerControl {
 
-  RUN("Run"),
+  CONTINUE("Continue"),
   STEP_OVER("Step Over"),
   STEP_INTO("Step Into"),
   STEP_OUT("Step Out"),

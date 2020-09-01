@@ -2,10 +2,11 @@ package com.swilkins.ScrabbleVisualizer.executable;
 
 public class Fibonacci {
 
-  public static void main(String[] args) {
-    Fibonacci fibonacci = new Fibonacci();
-    int value = fibonacci.get(16);
-    System.out.println(value);
+  public static void main(String[] args) throws NumberFormatException {
+    if (args.length == 1) {
+      int value = new Fibonacci().get(Integer.parseInt(args[0]));
+      System.out.println(value);
+    }
   }
 
   public int get(int index) {

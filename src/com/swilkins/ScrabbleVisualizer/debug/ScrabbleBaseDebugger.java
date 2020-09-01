@@ -13,15 +13,11 @@ import com.swilkins.ScrabbleBase.Generation.Direction;
 import com.swilkins.ScrabbleBase.Generation.Generator;
 import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
 
-import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
-import java.util.AbstractCollection;
 import java.util.Map;
 
-import static com.swilkins.ScrabbleVisualizer.utility.Utilities.createImageIconFrom;
 import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public class ScrabbleBaseDebugger extends Debugger {
@@ -46,20 +42,7 @@ public class ScrabbleBaseDebugger extends Debugger {
   }
 
   @Override
-  protected void configureDebuggerView() {
-    debuggerSourceView.setOptions(null);
-
-    for (DebuggerControl control : DebuggerControl.values()) {
-      JButton controlButton = debuggerSourceView.addDefaultControlButton(control);
-      URL iconUrl = getClass().getResource(String.format("../resource/icons/%s.png", control.getLabel()));
-      controlButton.setIcon(createImageIconFrom(iconUrl, ICON_DIMENSION));
-      controlButton.setFocusPainted(false);
-    }
-  }
-
-  @Override
   protected void configureDereferencers() {
-    dereferencerMap.put(AbstractCollection.class, (arrayable, thread) -> standardDereference(arrayable, "toArray", thread));
     Dereferencer fromTileContainer = (tileWrapper, thread) -> standardDereference(tileWrapper, "getTile", thread);
     dereferencerMap.put(BoardSquare.class, fromTileContainer);
     dereferencerMap.put(TilePlacement.class, (tilePlacement, thread) -> new Object[]{

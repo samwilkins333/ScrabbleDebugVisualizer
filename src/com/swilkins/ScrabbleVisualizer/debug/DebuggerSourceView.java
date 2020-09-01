@@ -12,7 +12,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.util.*;
 
-import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.RUN;
+import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.CONTINUE;
 
 public class DebuggerSourceView extends JPanel {
 
@@ -73,7 +73,7 @@ public class DebuggerSourceView extends JPanel {
       DebuggerControl control = defaultControlButton.getKey();
       controlButton = new JButton(control.getLabel());
       controlButton.addActionListener(defaultControlButton.getValue());
-      controlButton.setEnabled(control == RUN);
+      controlButton.setEnabled(control == CONTINUE);
       controlButtons.put(control, controlButton);
     }
   }
