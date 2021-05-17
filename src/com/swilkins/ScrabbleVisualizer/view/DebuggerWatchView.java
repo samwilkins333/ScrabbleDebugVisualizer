@@ -58,7 +58,9 @@ public abstract class DebuggerWatchView extends JPanel {
     for (Map.Entry<String, Object> entry : variables) {
       rawNameBuilder.append(entry.getKey()).append("\n");
       Object value = entry.getValue();
-      if (value.getClass().isArray()) {
+      if (value == null) {
+        value = "null";
+      } else if (value.getClass().isArray()) {
         value = Arrays.deepToString((Object[]) value);
       }
       rawValueBuilder.append(value).append("\n");

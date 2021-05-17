@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.swilkins.ScrabbleVisualizer.debug.DebuggerControl.*;
 import static com.swilkins.ScrabbleVisualizer.debug.ScrabbleBaseDebugger.ICON_DIMENSION;
@@ -165,6 +166,7 @@ public abstract class Debugger extends JFrame {
     }
     ThreadReference thread = event.thread();
     debuggerSourceView.setSelectedLocation(location);
+    System.out.println(location);
     onVirtualMachineSuspension(location, dereferenceVariables(thread));
     debuggerSourceView.setAllControlButtonsEnabled(true);
     debuggerModel.awaitEventProcessingContinuation();
@@ -274,9 +276,19 @@ public abstract class Debugger extends JFrame {
       throw errorMessageBuilder.apply("Method does not exist");
     }
     try {
-      Method toInvoke = candidates.get(0);
       if (arguments == null) {
         arguments = Collections.emptyList();
+      }
+      int argCount = arguments.size();
+      Method toInvoke = candidates.stream().filter(c -> {
+        try {
+          return c.arguments().size() == argCount;
+        } catch (AbsentInformationException e) {
+          return false;
+        }
+      }).collect(Collectors.toList()).get(0);
+      if (toInvoke == null) {
+        throw errorMessageBuilder.apply("Method does not exist");
       }
       return object.invokeMethod(thread, toInvoke, arguments, 0);
     } catch (Exception e) {
@@ -288,12 +300,16 @@ public abstract class Debugger extends JFrame {
           throws Exception {
     StackFrame frame = thread.frame(0);
     Map<String, Object> dereferencedVariables = new HashMap<>();
-    Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
-    debuggerModel.deadlockSafeInvoke(() -> {
-      for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
-        dereferencedVariables.put(entry.getKey().name(), dereferenceValue(thread, entry.getValue()));
-      }
-    });
+    try {
+      Map<LocalVariable, Value> values = frame.getValues(frame.visibleVariables());
+      debuggerModel.deadlockSafeInvoke(() -> {
+        for (Map.Entry<LocalVariable, Value> entry : values.entrySet()) {
+          dereferencedVariables.put(entry.getKey().name(), dereferenceValue(thread, entry.getValue()));
+        }
+      });
+    } catch (Exception e) {
+      System.err.println(e);
+    }
     return dereferencedVariables;
   }
 

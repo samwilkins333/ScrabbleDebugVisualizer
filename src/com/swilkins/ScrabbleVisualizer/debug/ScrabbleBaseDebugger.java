@@ -2,7 +2,6 @@ package com.swilkins.ScrabbleVisualizer.debug;
 
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.connect.Connector;
-import com.sun.jdi.event.LocatableEvent;
 import com.swilkins.ScrabbleBase.Board.Location.Coordinates;
 import com.swilkins.ScrabbleBase.Board.Location.TilePlacement;
 import com.swilkins.ScrabbleBase.Board.State.BoardSquare;
@@ -15,10 +14,10 @@ import com.swilkins.ScrabbleVisualizer.executable.GeneratorTarget;
 
 import java.awt.*;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
-
-import static com.swilkins.ScrabbleVisualizer.utility.Utilities.inputStreamToString;
 
 public class ScrabbleBaseDebugger extends Debugger {
 
@@ -31,12 +30,12 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureDebuggerModel() throws IOException, ClassNotFoundException {
     debuggerModel.addDebugClassSourcesFromJar("../lib/scrabble-base-jar-with-dependencies.jar", null);
-    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(120);
-    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true) {
+    debuggerModel.getDebugClassSourceFor(Generator.class).setCached(true).addCompileTimeBreakpoints(247);
+    debuggerModel.addDebugClassSource(GeneratorTarget.class, new DebugClassSource(true, 18) {
       @Override
-      public String getContentsAsString() {
-        InputStream debugClassStream = ScrabbleBaseDebugger.class.getResourceAsStream("../executable/GeneratorTarget.java");
-        return inputStreamToString(debugClassStream);
+      public String getContentsAsString() throws IOException {
+        Path path = Paths.get(System.getProperty("user.dir"), "com/swilkins/ScrabbleVisualizer/executable/GeneratorTarget.java");
+        return Files.readString(path);
       }
     });
   }
@@ -73,11 +72,6 @@ public class ScrabbleBaseDebugger extends Debugger {
   @Override
   protected void configureVirtualMachineLaunch(Map<String, Connector.Argument> arguments) {
     arguments.get("options").setValue("-cp \".:../lib/scrabble-base-jar-with-dependencies.jar\"");
-  }
-
-  @Override
-  protected void onVirtualMachineLocatableEvent(LocatableEvent event, int eventSetSize) throws Exception {
-    super.onVirtualMachineLocatableEvent(event, eventSetSize);
   }
 
 }

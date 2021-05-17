@@ -58,7 +58,7 @@ public class FibonacciDebugger extends Debugger {
 
   @Override
   protected void configureDebuggerModel() {
-    debuggerModel.addDebugClassSource(Fibonacci.class, new DebugClassSource(true, 14) {
+    debuggerModel.addDebugClassSource(Fibonacci.class, new DebugClassSource(true, 14, 27) {
       @Override
       public String getContentsAsString() {
         return inputStreamToString(getClass().getResourceAsStream("Fibonacci.java"));
